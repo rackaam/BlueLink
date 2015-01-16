@@ -45,6 +45,7 @@ public class BlueLink {
 
     private OnTurnOnBluetoothCallback turnOnBluetoothCallback;
     private OnOpenServerCallback openServerCallback;
+    private OnSearchForServerCallback searchForServerCallback;
     private Thread serverThread;
 
     /**
@@ -72,6 +73,7 @@ public class BlueLink {
                     openServerCallback.onFinished(e);
                 } else {
                     try {
+                        bluetooth.setName(name + "" + Build.MODEL);
                         startServerSocket();
                         makeDiscoverable(DISCOVERABLE_DURATION);
                     } catch (IOException e1) {
@@ -82,6 +84,11 @@ public class BlueLink {
         });
     }
 
+    /**
+     * Search for available servers.
+     *
+     * @param callback
+     */
     public void searchForServer(final OnSearchForServerCallback callback) {
         turnOnBluetooth(new OnTurnOnBluetoothCallback() {
             @Override
@@ -140,7 +147,7 @@ public class BlueLink {
      *
      * @param callback
      */
-    protected void turnOnBluetooth(final OnTurnOnBluetoothCallback callback) {
+    private void turnOnBluetooth(final OnTurnOnBluetoothCallback callback) {
         if (bluetooth.isEnabled() && callback != null) {
             callback.onBluetoothOn(null);
             turnOnBluetoothCallback = null;
@@ -167,7 +174,7 @@ public class BlueLink {
      *
      * @throws IOException
      */
-    protected void startServerSocket() throws IOException {
+    private void startServerSocket() throws IOException {
         if (serverSocket != null) {
             serverSocket.close();
         }
@@ -190,31 +197,8 @@ public class BlueLink {
     }
 
 
-    protected void startDiscovery(final OnSearchForServerCallback callback) {
-        BroadcastReceiver discoveryBR = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(intent.getAction())) {
-                    callback.onSearchStarted();
-                } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(intent.getAction())) {
-                    callback.onSearchFinished(serverList);
-                }
-            }
-        };
-        activity.registerReceiver(discoveryBR, new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_STARTED));
-        activity.registerReceiver(discoveryBR, new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED));
-        BroadcastReceiver newDeviceBR = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                BluetoothDevice newDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (newDevice.getName().startsWith(name)) {
-                    Server server = new Server(name.substring(name.length()), newDevice);
-                    serverList.add(server);
-                    callback.onNewServer(server);
-                }
-            }
-        };
-        activity.registerReceiver(newDeviceBR, new IntentFilter(BluetoothDevice.ACTION_FOUND)); // todo test double registration
+    private void startDiscovery(final OnSearchForServerCallback callback) {
+        searchForServerCallback = callback;
         serverList.clear();
         bluetooth.startDiscovery();
     }
@@ -278,5 +262,40 @@ public class BlueLink {
             }
         };
         activity.registerReceiver(bluetoothStateBR, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
+
+        BroadcastReceiver discoveryBR = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(intent.getAction())) {
+                    if (searchForServerCallback != null) {
+                        searchForServerCallback.onSearchStarted();
+                    }
+                } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(intent.getAction())) {
+                    if (searchForServerCallback != null) {
+                        searchForServerCallback.onSearchFinished(serverList);
+                        searchForServerCallback = null;
+                    }
+                }
+            }
+        };
+        activity.registerReceiver(discoveryBR, new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_STARTED));
+        activity.registerReceiver(discoveryBR, new IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED));
+
+        BroadcastReceiver newDeviceBR = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                BluetoothDevice newDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                Log.d(TAG, "New Device");
+                if (newDevice.getName().startsWith(name)) {
+                    Log.d(TAG, "New Device OK");
+                    Server server = new Server(newDevice.getName().substring(name.length()), newDevice);
+                    serverList.add(server);
+                    if (searchForServerCallback != null)
+                        searchForServerCallback.onNewServer(server);
+                }
+            }
+        };
+        activity.registerReceiver(newDeviceBR, new IntentFilter(BluetoothDevice.ACTION_FOUND));
     }
+
 }
