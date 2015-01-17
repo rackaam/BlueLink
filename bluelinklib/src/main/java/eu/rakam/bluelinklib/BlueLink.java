@@ -18,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import eu.rakam.bluelinklib.callbacks.OnConnectToServerCallback;
 import eu.rakam.bluelinklib.callbacks.OnOpenServerCallback;
 import eu.rakam.bluelinklib.callbacks.OnSearchForServerCallback;
 import eu.rakam.bluelinklib.callbacks.OnTurnOnBluetoothCallback;
@@ -33,12 +34,13 @@ public class BlueLink {
     private static final int HEADER_SIZE = HEADER_SPAN.length();
 
     private Activity activity;
-    private String name;
+    private String serverName;
     private java.util.UUID UUID;
 
     private BluetoothAdapter bluetooth;
     private BluetoothServerSocket serverSocket;
     private BluetoothSocket socket;
+    private List<Client> clientList = new ArrayList<>();
     private List<Server> serverList = new ArrayList<>();
     private ByteBuffer conversionBuffer = ByteBuffer.allocate(2);
     private byte[] buffer = new byte[BUFFER_SIZE];
@@ -49,11 +51,11 @@ public class BlueLink {
     private Thread serverThread;
 
     /**
-     * @param name Name of the server seen by other players
+     * @param serverName Name of the server seen by other players
      */
-    public BlueLink(Activity activity, String name, String UUID) {
+    public BlueLink(Activity activity, String serverName, String UUID) {
         this.activity = activity;
-        this.name = name;
+        this.serverName = serverName;
         this.UUID = java.util.UUID.fromString(UUID);
         this.bluetooth = BluetoothAdapter.getDefaultAdapter();
         registerBroadcastReceivers();
@@ -70,14 +72,14 @@ public class BlueLink {
             @Override
             public void onBluetoothOn(IOException e) {
                 if (e != null) {
-                    openServerCallback.onFinished(e);
+                    openServerCallback.onOpen(e);
                 } else {
                     try {
-                        bluetooth.setName(name + "" + Build.MODEL);
+                        bluetooth.setName(serverName + "" + Build.MODEL);
                         startServerSocket();
                         makeDiscoverable(DISCOVERABLE_DURATION);
                     } catch (IOException e1) {
-                        openServerCallback.onFinished(e1);
+                        openServerCallback.onOpen(e1);
                     }
                 }
             }
@@ -102,6 +104,40 @@ public class BlueLink {
         });
     }
 
+    public void connectToServer(Server server, final OnConnectToServerCallback callback) {
+        try {
+            bluetooth.cancelDiscovery();
+            socket = server.getDevice().createRfcommSocketToServiceRecord(UUID);
+            Thread listenThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        socket.connect();
+                        activity.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                callback.onConnect(null);
+                            }
+                        });
+                        listenForMessages();
+                    } catch (final IOException e) {
+                        Log.e(TAG, "Server connection IO Exception", e);
+                        activity.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                callback.onConnect(e);
+                            }
+                        });
+                    }
+                }
+            });
+            listenThread.start();
+        } catch (IOException e) {
+            Log.e(TAG, "Bluetooth client IO Exception", e);
+            callback.onConnect(e);
+        }
+    }
+
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
             case ENABLE_BLUETOOTH:
@@ -111,33 +147,12 @@ public class BlueLink {
                 break;
             case DISCOVERY_REQUEST:
                 if (resultCode == DISCOVERABLE_DURATION && openServerCallback != null) {
-                    openServerCallback.onFinished(null);
+                    openServerCallback.onOpen(null);
                 } else if (resultCode == Activity.RESULT_CANCELED && openServerCallback != null) {
-                    openServerCallback.onFinished(new IOException("User cancelled the discoverability request"));
+                    openServerCallback.onOpen(new IOException("User cancelled the discoverability request"));
                 }
-                openServerCallback = null;
             default:
                 break;
-        }
-    }
-
-    private void connectToServer(Server server) {
-        try {
-            socket = server.getDevice().createRfcommSocketToServiceRecord(UUID);
-            Thread listenThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        socket.connect();
-                        listenForMessages();
-                    } catch (IOException e) {
-                        Log.e(TAG, "Server connection IO Exception", e);
-                    }
-                }
-            });
-            listenThread.start();
-        } catch (IOException e) {
-            Log.e(TAG, "Bluetooth client IO Exception", e);
         }
     }
 
@@ -178,7 +193,7 @@ public class BlueLink {
         if (serverSocket != null) {
             serverSocket.close();
         }
-        serverSocket = bluetooth.listenUsingRfcommWithServiceRecord(name, UUID);
+        serverSocket = bluetooth.listenUsingRfcommWithServiceRecord(serverName, UUID);
         if (serverThread != null) {
             serverThread.interrupt();
         }
@@ -187,6 +202,14 @@ public class BlueLink {
             public void run() {
                 try {
                     socket = serverSocket.accept();
+                    final Client client = new Client("Name"); // todo Handshaking
+                    clientList.add(client);
+                    activity.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            openServerCallback.onNewClient(client);
+                        }
+                    });
                     listenForMessages();
                 } catch (IOException e) {
                     Log.e(TAG, "Server connection IO Exception", e);
@@ -286,9 +309,9 @@ public class BlueLink {
             public void onReceive(Context context, Intent intent) {
                 BluetoothDevice newDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 Log.d(TAG, "New Device");
-                if (newDevice.getName().startsWith(name)) {
+                if (newDevice.getName().startsWith(serverName)) {
                     Log.d(TAG, "New Device OK");
-                    Server server = new Server(newDevice.getName().substring(name.length()), newDevice);
+                    Server server = new Server(newDevice.getName().substring(serverName.length()), newDevice);
                     serverList.add(server);
                     if (searchForServerCallback != null)
                         searchForServerCallback.onNewServer(server);

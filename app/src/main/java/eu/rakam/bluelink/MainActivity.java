@@ -7,15 +7,19 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
 import eu.rakam.bluelinklib.BlueLink;
+import eu.rakam.bluelinklib.Client;
 import eu.rakam.bluelinklib.Server;
+import eu.rakam.bluelinklib.callbacks.OnConnectToServerCallback;
 import eu.rakam.bluelinklib.callbacks.OnOpenServerCallback;
 import eu.rakam.bluelinklib.callbacks.OnSearchForServerCallback;
 
@@ -38,9 +42,25 @@ public class MainActivity extends ActionBarActivity {
         Button searchForServersButton = (Button) findViewById(R.id.searchForServersButton);
         Button startServerButton = (Button) findViewById(R.id.startServerButton);
 
-        ListView serverListView = (ListView) findViewById(R.id.serverListView);
+        final ListView serverListView = (ListView) findViewById(R.id.serverListView);
         serverAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, servers);
         serverListView.setAdapter(serverAdapter);
+        serverListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                final Server server = servers.get(position);
+                log("Begins connection to " + server.getName());
+                blueLink.connectToServer(server, new OnConnectToServerCallback() {
+                    @Override
+                    public void onConnect(IOException e) {
+                        if (e != null)
+                            log("Connection error : " + e);
+                        else
+                            log("Connected to " + server.getName());
+                    }
+                });
+            }
+        });
 
         ListView logListView = (ListView) findViewById(R.id.logListView);
         logAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, logs);
@@ -75,11 +95,16 @@ public class MainActivity extends ActionBarActivity {
             public void onClick(View v) {
                 blueLink.openServer(new OnOpenServerCallback() {
                     @Override
-                    public void onFinished(Exception e) {
+                    public void onOpen(Exception e) {
                         if (e == null)
                             log("Server ON");
                         else
                             log("Error during server initialisation : " + e);
+                    }
+
+                    @Override
+                    public void onNewClient(Client client) {
+                        log("New client : " + client.getName());
                     }
                 });
             }
