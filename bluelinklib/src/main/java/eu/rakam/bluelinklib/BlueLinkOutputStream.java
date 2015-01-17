@@ -74,10 +74,9 @@ public class BlueLinkOutputStream {
     public void writeString(String s) {
         if (s == null)
             return;
-        // Write a char before the string to indicate the string length
-        byte[] stringLengthTab = twoBytesConversionBuffer.putChar(0, (char) s.length()).array();
         try {
-            outputStream.write(stringLengthTab);
+            // Write a char before the string to indicate the string length
+            writeChar((char) s.length());
             outputStream.write(s.getBytes());
         } catch (IOException e) {
             Log.e(TAG, e.toString());
