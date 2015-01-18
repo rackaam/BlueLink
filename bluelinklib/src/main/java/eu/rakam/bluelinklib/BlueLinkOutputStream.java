@@ -86,4 +86,8 @@ public class BlueLinkOutputStream {
     public byte[] toByteArray() {
         return outputStream.toByteArray();
     }
+
+    public int getSize() {
+        return outputStream.size();
+    }
 }

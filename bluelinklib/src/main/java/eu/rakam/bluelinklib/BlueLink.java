@@ -14,6 +14,7 @@ import android.util.Log;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +27,7 @@ import eu.rakam.bluelinklib.callbacks.OnTurnOnBluetoothCallback;
 public class BlueLink {
 
     private static final String TAG = "BlueLinkDebug";
+    private static final byte PROTOCOL_VERSION = 1;
     private static final int ENABLE_BLUETOOTH = 22000;
     private static final int DISCOVERY_REQUEST = 22001;
     private static final int DISCOVERABLE_DURATION = 60;
@@ -42,7 +44,7 @@ public class BlueLink {
     private BluetoothSocket socket;
     private List<Client> clientList = new ArrayList<>();
     private List<Server> serverList = new ArrayList<>();
-    private ByteBuffer conversionBuffer = ByteBuffer.allocate(2);
+    private ByteBuffer twoBytesConversionBuffer = ByteBuffer.allocate(2);
     private byte[] buffer = new byte[BUFFER_SIZE];
 
     private OnTurnOnBluetoothCallback turnOnBluetoothCallback;
@@ -104,7 +106,18 @@ public class BlueLink {
         });
     }
 
-    public void connectToServer(Server server, final OnConnectToServerCallback callback) {
+    /**
+     * Connects to the server.
+     * <p/>
+     * <p>The data sent to the server during the connection (<code>out</code>) can be retrieved by
+     * the server in the {@link eu.rakam.bluelinklib.callbacks.OnOpenServerCallback#onNewClient(Client, BlueLinkInputStream)}
+     * callback method.
+     *
+     * @param server   server to connect to
+     * @param out      data to send to the server during the connection (can be null)
+     * @param callback
+     */
+    public void connectToServer(Server server, final BlueLinkOutputStream out, final OnConnectToServerCallback callback) {
         try {
             bluetooth.cancelDiscovery();
             socket = server.getDevice().createRfcommSocketToServiceRecord(UUID);
@@ -113,6 +126,7 @@ public class BlueLink {
                 public void run() {
                     try {
                         socket.connect();
+                        handshakingClient(out);
                         activity.runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
@@ -184,6 +198,13 @@ public class BlueLink {
         activity.startActivityForResult(discoverableIntent, DISCOVERY_REQUEST);
     }
 
+
+    private void startDiscovery(final OnSearchForServerCallback callback) {
+        searchForServerCallback = callback;
+        serverList.clear();
+        bluetooth.startDiscovery();
+    }
+
     /**
      * Starts the server socket and waits for connections
      *
@@ -202,12 +223,14 @@ public class BlueLink {
             public void run() {
                 try {
                     socket = serverSocket.accept();
-                    final Client client = new Client("Name"); // todo Handshaking
+                    final byte[] handshakeData = handshakingServer();
+                    final Client client = new Client(socket);
                     clientList.add(client);
                     activity.runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            openServerCallback.onNewClient(client);
+                            openServerCallback.onNewClient(client,
+                                    handshakeData == null ? null : new BlueLinkInputStream(handshakeData));
                         }
                     });
                     listenForMessages();
@@ -219,13 +242,55 @@ public class BlueLink {
         serverThread.start();
     }
 
-
-    private void startDiscovery(final OnSearchForServerCallback callback) {
-        searchForServerCallback = callback;
-        serverList.clear();
-        bluetooth.startDiscovery();
+    /**
+     * Sends the protocol version, two bytes to indicate the size of the frame then the frame.
+     *
+     * @param out the data to send
+     */
+    private void handshakingClient(BlueLinkOutputStream out) {
+        try {
+            OutputStream outputStream = socket.getOutputStream();
+            outputStream.write(PROTOCOL_VERSION);
+            if (out != null) {
+                outputStream.write(twoBytesConversionBuffer.putChar(0, (char) out.getSize()).array());
+                outputStream.write(out.toByteArray());
+            } else {
+                outputStream.write(twoBytesConversionBuffer.putChar(0, (char) 0).array());
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
+    /**
+     * Reads the protocol version, gets the data sent and returns them in a byte array.
+     *
+     * @return the data sent by the client. Can be null
+     */
+    private byte[] handshakingServer() {
+        try {
+            InputStream inputStream = socket.getInputStream();
+            byte clientProtocolVerison = (byte) inputStream.read();
+            byte byte0 = (byte) inputStream.read();
+            byte byte1 = (byte) inputStream.read();
+            twoBytesConversionBuffer.put(0, byte0);
+            twoBytesConversionBuffer.put(1, byte1);
+            int frameSize = twoBytesConversionBuffer.getShort(0);
+            byte[] dataIn = null;
+            if (frameSize > 0) {
+                dataIn = new byte[frameSize];
+                int bytesRead = 0;
+                while (bytesRead < frameSize) {
+                    int offset = bytesRead;
+                    bytesRead += inputStream.read(dataIn, offset, frameSize - bytesRead);
+                }
+            }
+            return dataIn;
+        } catch (IOException e) {
+            Log.e(TAG, "Handshaking server IO Exception", e);
+            return null;
+        }
+    }
 
     private void listenForMessages() {
         Log.d(TAG, Build.MODEL + " listen message");
@@ -238,9 +303,9 @@ public class BlueLink {
             while (listening) {
                 byte firstByte = (byte) inputStream.read();
                 byte secondByte = (byte) inputStream.read();
-                conversionBuffer.put(0, firstByte);
-                conversionBuffer.put(1, secondByte);
-                int contentLength = conversionBuffer.getShort(0);
+                twoBytesConversionBuffer.put(0, firstByte);
+                twoBytesConversionBuffer.put(1, secondByte);
+                int contentLength = twoBytesConversionBuffer.getShort(0);
                 byte messageType = (byte) inputStream.read();
                 bytesRead = 0;
                 do {

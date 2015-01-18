@@ -1,5 +1,6 @@
 package eu.rakam.bluelinklib.callbacks;
 
+import eu.rakam.bluelinklib.BlueLinkInputStream;
 import eu.rakam.bluelinklib.Client;
 
 public interface OnOpenServerCallback {
@@ -15,6 +16,8 @@ public interface OnOpenServerCallback {
      * Called every time a player connects to the server.
      *
      * @param client the new player
+     * @param in     the data sent by the client in {@link eu.rakam.bluelinklib.BlueLink#connectToServer(eu.rakam.bluelinklib.Server, eu.rakam.bluelinklib.BlueLinkOutputStream, OnConnectToServerCallback)}.
+     *               Can be null
      */
-    public void onNewClient(Client client);
+    public void onNewClient(Client client, BlueLinkInputStream in);
 }

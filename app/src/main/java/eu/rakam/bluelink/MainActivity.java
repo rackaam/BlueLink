@@ -1,6 +1,7 @@
 package eu.rakam.bluelink;
 
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
@@ -17,6 +18,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 import eu.rakam.bluelinklib.BlueLink;
+import eu.rakam.bluelinklib.BlueLinkInputStream;
+import eu.rakam.bluelinklib.BlueLinkOutputStream;
 import eu.rakam.bluelinklib.Client;
 import eu.rakam.bluelinklib.Server;
 import eu.rakam.bluelinklib.callbacks.OnConnectToServerCallback;
@@ -38,7 +41,7 @@ public class MainActivity extends ActionBarActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        blueLink = new BlueLink(this, "BlueLinkTest", "234eda5e-048e-4e75-8acc-b56b6e6cc9aa");
+        blueLink = new BlueLink(this, "BlueLinkTest", "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", (byte) 1);
         Button searchForServersButton = (Button) findViewById(R.id.searchForServersButton);
         Button startServerButton = (Button) findViewById(R.id.startServerButton);
 
@@ -50,7 +53,9 @@ public class MainActivity extends ActionBarActivity {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 final Server server = servers.get(position);
                 log("Begins connection to " + server.getName());
-                blueLink.connectToServer(server, new OnConnectToServerCallback() {
+                BlueLinkOutputStream out = new BlueLinkOutputStream();
+                out.writeString(Build.MODEL);
+                blueLink.connectToServer(server, out, new OnConnectToServerCallback() {
                     @Override
                     public void onConnect(IOException e) {
                         if (e != null)
@@ -103,8 +108,9 @@ public class MainActivity extends ActionBarActivity {
                     }
 
                     @Override
-                    public void onNewClient(Client client) {
-                        log("New client : " + client.getName());
+                    public void onNewClient(Client client, BlueLinkInputStream in) {
+                        String clientName = in.readString();
+                        log("New client : " + clientName);
                     }
                 });
             }

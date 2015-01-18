@@ -1,19 +1,16 @@
 package eu.rakam.bluelinklib;
 
+import android.bluetooth.BluetoothSocket;
+
 public class Client {
 
-    private final String name;
+    private final BluetoothSocket socket;
 
-    public Client(String name) {
-        this.name = name;
+    public Client(BluetoothSocket socket) {
+        this.socket = socket;
     }
 
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public String toString() {
-        return name;
+    public BluetoothSocket getSocket() {
+        return socket;
     }
 }
