@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import eu.rakam.bluelinklib.callbacks.OnConnectToServerCallback;
+import eu.rakam.bluelinklib.callbacks.OnNewMessageCallback;
 import eu.rakam.bluelinklib.callbacks.OnOpenServerCallback;
 import eu.rakam.bluelinklib.callbacks.OnSearchForServerCallback;
 import eu.rakam.bluelinklib.callbacks.OnTurnOnBluetoothCallback;
@@ -31,9 +32,11 @@ public class BlueLink {
     private static final int ENABLE_BLUETOOTH = 22000;
     private static final int DISCOVERY_REQUEST = 22001;
     private static final int DISCOVERABLE_DURATION = 60;
-    private static final int BUFFER_SIZE = 32768;
-    private static final String HEADER_SPAN = "   ";
-    private static final int HEADER_SIZE = HEADER_SPAN.length();
+    private static final int HEADER_SIZE = 3;
+
+    /* Message types */
+    private static final byte SYNC_MESSAGE = 0;
+    private static final byte USER_MESSAGE = 1;
 
     private Activity activity;
     private String serverName;
@@ -45,8 +48,8 @@ public class BlueLink {
     private List<Client> clientList = new ArrayList<>();
     private List<Server> serverList = new ArrayList<>();
     private ByteBuffer twoBytesConversionBuffer = ByteBuffer.allocate(2);
-    private byte[] buffer = new byte[BUFFER_SIZE];
 
+    private OnNewMessageCallback messageCallback;
     private OnTurnOnBluetoothCallback turnOnBluetoothCallback;
     private OnOpenServerCallback openServerCallback;
     private OnSearchForServerCallback searchForServerCallback;
@@ -56,9 +59,14 @@ public class BlueLink {
      * @param serverName Name of the server seen by other players
      */
     public BlueLink(Activity activity, String serverName, String UUID) {
+        this(activity, serverName, UUID, null);
+    }
+
+    public BlueLink(Activity activity, String serverName, String UUID, OnNewMessageCallback messageCallback) {
         this.activity = activity;
         this.serverName = serverName;
         this.UUID = java.util.UUID.fromString(UUID);
+        this.messageCallback = messageCallback;
         this.bluetooth = BluetoothAdapter.getDefaultAdapter();
         registerBroadcastReceivers();
     }
@@ -77,7 +85,7 @@ public class BlueLink {
                     openServerCallback.onOpen(e);
                 } else {
                     try {
-                        bluetooth.setName(serverName + "" + Build.MODEL);
+                        bluetooth.setName(serverName + Build.MODEL);
                         startServerSocket();
                         makeDiscoverable(DISCOVERABLE_DURATION);
                     } catch (IOException e1) {
@@ -150,6 +158,18 @@ public class BlueLink {
             Log.e(TAG, "Bluetooth client IO Exception", e);
             callback.onConnect(e);
         }
+    }
+
+    public void sendMessage(String message) {
+        if (message == null)
+            return;
+        BlueLinkOutputStream outputStream = new BlueLinkOutputStream();
+        outputStream.writeString(message);
+        sendMessage(USER_MESSAGE, outputStream);
+    }
+
+    public void sendMessage(BlueLinkOutputStream message) {
+        sendMessage(USER_MESSAGE, message);
     }
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -276,21 +296,41 @@ public class BlueLink {
             twoBytesConversionBuffer.put(0, byte0);
             twoBytesConversionBuffer.put(1, byte1);
             int frameSize = twoBytesConversionBuffer.getShort(0);
-            byte[] dataIn = null;
+            byte[] buffer = null;
             if (frameSize > 0) {
-                dataIn = new byte[frameSize];
+                buffer = new byte[frameSize];
                 int bytesRead = 0;
                 while (bytesRead < frameSize) {
                     int offset = bytesRead;
-                    bytesRead += inputStream.read(dataIn, offset, frameSize - bytesRead);
+                    bytesRead += inputStream.read(buffer, offset, frameSize - bytesRead);
                 }
             }
-            return dataIn;
+            return buffer;
         } catch (IOException e) {
             Log.e(TAG, "Handshaking server IO Exception", e);
             return null;
         }
     }
+
+
+    private void sendMessage(byte type, BlueLinkOutputStream message) {
+        if (message == null)
+            return;
+        try {
+            OutputStream outputStream = socket.getOutputStream();
+            byte[] header = new byte[HEADER_SIZE];
+            int contentLength = message.getSize();
+            byte[] contentLengthTab = twoBytesConversionBuffer.putShort(0, (short) contentLength).array(); // conversion int/byte
+            header[0] = type;
+            header[1] = contentLengthTab[0];
+            header[2] = contentLengthTab[1];
+            outputStream.write(header);
+            outputStream.write(message.toByteArray());
+        } catch (IOException e) {
+            Log.e(TAG, "Send message IO Exception", e);
+        }
+    }
+
 
     private void listenForMessages() {
         Log.d(TAG, Build.MODEL + " listen message");
@@ -301,19 +341,26 @@ public class BlueLink {
             InputStream inputStream = socket.getInputStream();
             int bytesRead;
             while (listening) {
-                byte firstByte = (byte) inputStream.read();
-                byte secondByte = (byte) inputStream.read();
-                twoBytesConversionBuffer.put(0, firstByte);
-                twoBytesConversionBuffer.put(1, secondByte);
-                int contentLength = twoBytesConversionBuffer.getShort(0);
                 byte messageType = (byte) inputStream.read();
+                byte byte0 = (byte) inputStream.read();
+                byte byte1 = (byte) inputStream.read();
+                twoBytesConversionBuffer.put(0, byte0);
+                twoBytesConversionBuffer.put(1, byte1);
+                int frameSize = twoBytesConversionBuffer.getShort(0);
+                final byte[] buffer = new byte[frameSize];
                 bytesRead = 0;
-                do {
+                while (bytesRead < frameSize) {
                     int offset = bytesRead;
-                    bytesRead += inputStream.read(buffer, offset, contentLength - bytesRead);
-                } while (bytesRead < contentLength);
-                String result = new String(buffer, 0, bytesRead); //todo need String?
-                Log.d(TAG, "Contenu reçu " + messageType + ":\n" + result + "\n");
+                    bytesRead += inputStream.read(buffer, offset, frameSize - bytesRead);
+                }
+                if (messageType == USER_MESSAGE && messageCallback != null) {
+                    activity.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            messageCallback.onNewMessage(new BlueLinkInputStream(buffer));
+                        }
+                    });
+                }
             }
         } catch (IOException e) {
             Log.e(TAG, "Read message IO Exception", e);
@@ -386,4 +433,11 @@ public class BlueLink {
         activity.registerReceiver(newDeviceBR, new IntentFilter(BluetoothDevice.ACTION_FOUND));
     }
 
+    public OnNewMessageCallback getMessageCallback() {
+        return messageCallback;
+    }
+
+    public void setMessageCallback(OnNewMessageCallback messageCallback) {
+        this.messageCallback = messageCallback;
+    }
 }

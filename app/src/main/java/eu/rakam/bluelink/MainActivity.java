@@ -11,6 +11,7 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListView;
 
 import java.io.IOException;
@@ -36,14 +37,18 @@ public class MainActivity extends ActionBarActivity {
     private List<Server> servers = new LinkedList<>();
     private ArrayAdapter<Server> serverAdapter;
     private ArrayAdapter<String> logAdapter;
+    private MessageProcessor messageProcessor = new MessageProcessor(this);
+
+    private EditText messageField;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        blueLink = new BlueLink(this, "BlueLinkTest", "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", (byte) 1);
+        messageField = (EditText) findViewById(R.id.messageField);
         Button searchForServersButton = (Button) findViewById(R.id.searchForServersButton);
         Button startServerButton = (Button) findViewById(R.id.startServerButton);
+        Button sendButton = (Button) findViewById(R.id.sendButton);
 
         final ListView serverListView = (ListView) findViewById(R.id.serverListView);
         serverAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, servers);
@@ -74,6 +79,8 @@ public class MainActivity extends ActionBarActivity {
         searchForServersButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                blueLink = new BlueLink(MainActivity.this, "BlueLinkTest",
+                        "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", messageProcessor);
                 blueLink.searchForServer(new OnSearchForServerCallback() {
                     @Override
                     public void onSearchStarted() {
@@ -98,6 +105,8 @@ public class MainActivity extends ActionBarActivity {
         startServerButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                blueLink = new BlueLink(MainActivity.this, "BlueLinkTest",
+                        "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", messageProcessor);
                 blueLink.openServer(new OnOpenServerCallback() {
                     @Override
                     public void onOpen(Exception e) {
@@ -113,6 +122,17 @@ public class MainActivity extends ActionBarActivity {
                         log("New client : " + clientName);
                     }
                 });
+            }
+        });
+
+        sendButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                BlueLinkOutputStream message = new BlueLinkOutputStream();
+                message.writeString("Test");
+                message.writeInt(45678);
+                message.writeFloat(54.42f);
+                blueLink.sendMessage(message);
             }
         });
     }
