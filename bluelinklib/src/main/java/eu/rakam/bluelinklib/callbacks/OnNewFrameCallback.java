@@ -1,7 +1,7 @@
 package eu.rakam.bluelinklib.callbacks;
 
-/**
- * Created by matthias on 20/01/15.
- */
-public class OnNewFrameCallback {
+import eu.rakam.bluelinklib.BlueLinkInputStream;
+
+public interface OnNewFrameCallback {
+    public void onNewFrame(int senderID, byte messageType, BlueLinkInputStream in);
 }

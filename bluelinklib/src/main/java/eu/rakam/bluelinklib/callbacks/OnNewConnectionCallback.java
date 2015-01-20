@@ -1,7 +1,7 @@
 package eu.rakam.bluelinklib.callbacks;
 
-/**
- * Created by matthias on 20/01/15.
- */
-public class OnNewConnectionCallback {
+import android.bluetooth.BluetoothSocket;
+
+public interface OnNewConnectionCallback {
+    public void onNewConnection(BluetoothSocket socket);
 }

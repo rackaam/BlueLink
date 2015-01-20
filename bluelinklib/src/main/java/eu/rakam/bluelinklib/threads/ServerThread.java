@@ -44,11 +44,11 @@ public class ServerThread extends Thread {
     }
 
     public void cancel() {
+        Log.d(TAG, "Server thread cancelled");
         try {
             loop = false;
             serverSocket.close();
         } catch (IOException e) {
-            Log.d(TAG, "Server thread cancelled");
         }
     }
 

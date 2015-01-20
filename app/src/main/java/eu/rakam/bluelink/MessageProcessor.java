@@ -12,10 +12,10 @@ public class MessageProcessor implements OnNewMessageCallback {
     }
 
     @Override
-    public void onNewMessage(BlueLinkInputStream message) {
+    public void onNewMessage(int senderID, BlueLinkInputStream message) {
         String str = message.readString();
         int i = message.readInt();
         float f = message.readFloat();
-        mainActivity.log(str + " " + i + " " + f);
+        mainActivity.log(senderID + ":" + str + " " + i + " " + f);
     }
 }

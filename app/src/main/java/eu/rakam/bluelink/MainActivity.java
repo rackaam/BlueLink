@@ -18,9 +18,10 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-import eu.rakam.bluelinklib.BlueLink;
+import eu.rakam.bluelinklib.BlueLinkClient;
 import eu.rakam.bluelinklib.BlueLinkInputStream;
 import eu.rakam.bluelinklib.BlueLinkOutputStream;
+import eu.rakam.bluelinklib.BlueLinkServer;
 import eu.rakam.bluelinklib.Client;
 import eu.rakam.bluelinklib.Server;
 import eu.rakam.bluelinklib.callbacks.OnConnectToServerCallback;
@@ -32,20 +33,19 @@ public class MainActivity extends ActionBarActivity {
 
     private static final String TAG = "BlueLinkTest";
 
-    private BlueLink blueLink;
+    private BlueLinkClient blueLinkClient;
+    private BlueLinkServer blueLinkServer;
     private List<String> logs = new LinkedList<>();
     private List<Server> servers = new LinkedList<>();
     private ArrayAdapter<Server> serverAdapter;
     private ArrayAdapter<String> logAdapter;
     private MessageProcessor messageProcessor = new MessageProcessor(this);
 
-    private EditText messageField;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        messageField = (EditText) findViewById(R.id.messageField);
+        EditText messageField = (EditText) findViewById(R.id.messageField);
         Button searchForServersButton = (Button) findViewById(R.id.searchForServersButton);
         Button startServerButton = (Button) findViewById(R.id.startServerButton);
         Button sendButton = (Button) findViewById(R.id.sendButton);
@@ -60,7 +60,7 @@ public class MainActivity extends ActionBarActivity {
                 log("Begins connection to " + server.getName());
                 BlueLinkOutputStream out = new BlueLinkOutputStream();
                 out.writeString(Build.MODEL);
-                blueLink.connectToServer(server, out, new OnConnectToServerCallback() {
+                blueLinkClient.connectToServer(server, out, new OnConnectToServerCallback() {
                     @Override
                     public void onConnect(IOException e) {
                         if (e != null)
@@ -79,9 +79,9 @@ public class MainActivity extends ActionBarActivity {
         searchForServersButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                blueLink = new BlueLink(MainActivity.this, "BlueLinkTest",
+                blueLinkClient = new BlueLinkClient(MainActivity.this, "BlueLinkTest",
                         "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", messageProcessor);
-                blueLink.searchForServer(new OnSearchForServerCallback() {
+                blueLinkClient.searchForServer(new OnSearchForServerCallback() {
                     @Override
                     public void onSearchStarted() {
                         Log.d(TAG, "Search Started");
@@ -105,9 +105,9 @@ public class MainActivity extends ActionBarActivity {
         startServerButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                blueLink = new BlueLink(MainActivity.this, "BlueLinkTest",
+                blueLinkServer = new BlueLinkServer(MainActivity.this, "BlueLinkTest",
                         "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", messageProcessor);
-                blueLink.openServer(new OnOpenServerCallback() {
+                blueLinkServer.openServer(new OnOpenServerCallback() {
                     @Override
                     public void onOpen(Exception e) {
                         if (e == null)
@@ -132,7 +132,10 @@ public class MainActivity extends ActionBarActivity {
                 message.writeString("Test");
                 message.writeInt(45678);
                 message.writeFloat(54.42f);
-                blueLink.sendMessage(message);
+                if (blueLinkClient != null)
+                    blueLinkClient.sendMessage(message);
+                if (blueLinkServer != null)
+                    blueLinkServer.sendMessage(blueLinkServer.getClientList().get(0), message);
             }
         });
     }
@@ -140,7 +143,10 @@ public class MainActivity extends ActionBarActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        blueLink.onActivityResult(requestCode, resultCode, data);
+        if (blueLinkClient != null)
+            blueLinkClient.onActivityResult(requestCode, resultCode, data);
+        if (blueLinkServer != null)
+            blueLinkServer.onActivityResult(requestCode, resultCode, data);
     }
 
     @Override
@@ -169,4 +175,5 @@ public class MainActivity extends ActionBarActivity {
         logs.add(log);
         logAdapter.notifyDataSetChanged();
     }
+
 }

@@ -5,9 +5,12 @@ import android.util.Log;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
+import eu.rakam.bluelinklib.BlueLink;
 import eu.rakam.bluelinklib.BlueLinkInputStream;
+import eu.rakam.bluelinklib.BlueLinkOutputStream;
 import eu.rakam.bluelinklib.Client;
 import eu.rakam.bluelinklib.callbacks.OnNewFrameCallback;
 
@@ -15,9 +18,13 @@ public class ConnectedThread extends Thread {
 
     private static final String TAG = "ConnectedThread";
 
+    private static final int HEADER_SIZE = 3;
+
     private final OnNewFrameCallback newFrameCallback;
     private final BluetoothSocket socket;
     private final int clientId;
+    private InputStream inputStream;
+    private OutputStream outputStream;
     private ByteBuffer twoBytesConversionBuffer = ByteBuffer.allocate(2);
 
     /**
@@ -30,6 +37,8 @@ public class ConnectedThread extends Thread {
         this.newFrameCallback = newFrameCallback;
         this.socket = socket;
         this.clientId = 0;
+
+        initStreams();
     }
 
     /**
@@ -42,6 +51,25 @@ public class ConnectedThread extends Thread {
         this.newFrameCallback = newFrameCallback;
         this.socket = client.getSocket();
         this.clientId = client.getId();
+
+        initStreams();
+    }
+
+    private void initStreams() {
+        InputStream tmpIn = null;
+        OutputStream tmpOut = null;
+
+        // Get the input and output streams, using temp objects because
+        // member streams are final
+        try {
+            tmpIn = socket.getInputStream();
+            tmpOut = socket.getOutputStream();
+        } catch (IOException e) {
+            Log.e(TAG, "get streams error", e);
+        }
+
+        inputStream = tmpIn;
+        outputStream = tmpOut;
     }
 
     @Override
@@ -49,7 +77,6 @@ public class ConnectedThread extends Thread {
         boolean listening = true;
 
         try {
-            InputStream inputStream = socket.getInputStream();
             int bytesRead;
             while (listening) {
                 byte messageType = (byte) inputStream.read();
@@ -70,6 +97,23 @@ public class ConnectedThread extends Thread {
             }
         } catch (IOException e) {
             Log.e(TAG, "Read message IO Exception", e);
+        }
+    }
+
+    public void sendMessage(byte type, BlueLinkOutputStream message) {
+        if (message == null)
+            return;
+        try {
+            byte[] header = new byte[HEADER_SIZE];
+            int contentLength = message.getSize();
+            byte[] contentLengthTab = twoBytesConversionBuffer.putShort(0, (short) contentLength).array(); // conversion int/byte
+            header[0] = type;
+            header[1] = contentLengthTab[0];
+            header[2] = contentLengthTab[1];
+            outputStream.write(header);
+            outputStream.write(message.toByteArray());
+        } catch (IOException e) {
+            Log.e(BlueLink.TAG, "Send message IO Exception", e);
         }
     }
 }
