@@ -103,6 +103,26 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
         client.getConnectedThread().sendMessage(type, message);
     }
 
+    public void broadcastMessage(String message) {
+        if (message == null)
+            return;
+        BlueLinkOutputStream outputStream = new BlueLinkOutputStream();
+        outputStream.writeString(message);
+        broadcastMessage(BlueLink.USER_MESSAGE, outputStream);
+    }
+
+    public void broadcastMessage(BlueLinkOutputStream message) {
+        broadcastMessage(BlueLink.USER_MESSAGE, message);
+    }
+
+    private void broadcastMessage(Byte type, BlueLinkOutputStream message) {
+        if (message == null)
+            return;
+        for (Client client : clientList) {
+            client.getConnectedThread().sendMessage(type, message);
+        }
+    }
+
     /**
      * Closes the server. New clients can't connect any more.
      * The connections already established with the clients stay alive.

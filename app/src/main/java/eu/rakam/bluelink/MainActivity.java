@@ -135,7 +135,7 @@ public class MainActivity extends ActionBarActivity {
                 if (blueLinkClient != null)
                     blueLinkClient.sendMessage(message);
                 if (blueLinkServer != null)
-                    blueLinkServer.sendMessage(blueLinkServer.getClientList().get(0), message);
+                    blueLinkServer.broadcastMessage(message);
             }
         });
     }
