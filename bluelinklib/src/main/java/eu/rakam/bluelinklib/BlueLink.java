@@ -8,6 +8,14 @@ public class BlueLink {
     public static final int ENABLE_BLUETOOTH = 22000;
 
     /* Message types */
-    public static final byte SYNC_MESSAGE = 0;
-    public static final byte USER_MESSAGE = 1;
+    public static final byte NEW_INSTANCE_MESSAGE = 0;
+    public static final byte UPDATE_MESSAGE = 1;
+    public static final byte USER_MESSAGE = 2;
+
+    private static int idCount;
+
+    public static int getID() {
+        idCount++;
+        return idCount;
+    }
 }

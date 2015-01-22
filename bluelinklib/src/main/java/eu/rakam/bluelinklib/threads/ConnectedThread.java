@@ -13,12 +13,16 @@ import eu.rakam.bluelinklib.BlueLinkInputStream;
 import eu.rakam.bluelinklib.BlueLinkOutputStream;
 import eu.rakam.bluelinklib.Client;
 import eu.rakam.bluelinklib.callbacks.OnNewFrameCallback;
+import eu.rakam.bluelinklib.sync.messages.NewInstanceMessage;
+import eu.rakam.bluelinklib.sync.messages.UpdateMessage;
 
 public class ConnectedThread extends Thread {
 
     private static final String TAG = "ConnectedThread";
 
-    private static final int HEADER_SIZE = 3;
+    private static final int MESSAGE_HEADER_SIZE = 3;
+    private static final int UPDATE_MESSAGE_HEADER_SIZE = 7;
+    private static final int NEW_INSTANCE_MESSAGE_HEADER_SIZE = 9;
 
     private final OnNewFrameCallback newFrameCallback;
     private final BluetoothSocket socket;
@@ -26,6 +30,7 @@ public class ConnectedThread extends Thread {
     private InputStream inputStream;
     private OutputStream outputStream;
     private ByteBuffer twoBytesConversionBuffer = ByteBuffer.allocate(2);
+    private ByteBuffer fourBytesConversionBuffer = ByteBuffer.allocate(2);
 
     /**
      * User by the client to communicate with the server.
@@ -77,26 +82,77 @@ public class ConnectedThread extends Thread {
         boolean listening = true;
 
         try {
-            int bytesRead;
             while (listening) {
                 byte messageType = (byte) inputStream.read();
-                byte byte0 = (byte) inputStream.read();
-                byte byte1 = (byte) inputStream.read();
-                twoBytesConversionBuffer.put(0, byte0);
-                twoBytesConversionBuffer.put(1, byte1);
-                int frameSize = twoBytesConversionBuffer.getShort(0);
-                final byte[] buffer = new byte[frameSize];
-                bytesRead = 0;
-                while (bytesRead < frameSize) {
-                    int offset = bytesRead;
-                    bytesRead += inputStream.read(buffer, offset, frameSize - bytesRead);
+                switch (messageType) {
+                    case BlueLink.USER_MESSAGE:
+                        receiveUserMessage();
+                        break;
+                    case BlueLink.UPDATE_MESSAGE:
+                        receiveUpdateMessage();
+                        break;
+                    default:
+                        break;
                 }
-                if (newFrameCallback != null) {
-                    newFrameCallback.onNewFrame(clientId, messageType, new BlueLinkInputStream(buffer));
-                }
+
             }
         } catch (IOException e) {
             Log.e(TAG, "Read message IO Exception", e);
+        }
+    }
+
+    private void receiveUserMessage() {
+        try {
+            byte byte0 = (byte) inputStream.read();
+            byte byte1 = (byte) inputStream.read();
+            twoBytesConversionBuffer.put(0, byte0);
+            twoBytesConversionBuffer.put(1, byte1);
+            int frameSize = twoBytesConversionBuffer.getChar(0);
+            final byte[] buffer = new byte[frameSize];
+            int bytesRead = 0;
+            while (bytesRead < frameSize) {
+                int offset = bytesRead;
+                bytesRead += inputStream.read(buffer, offset, frameSize - bytesRead);
+            }
+            if (newFrameCallback != null) {
+                newFrameCallback.onNewMessage(clientId, BlueLink.USER_MESSAGE, new BlueLinkInputStream(buffer));
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "ReceiveUserMessage Exception", e);
+        }
+    }
+
+    private void receiveNewInstanceMessage() {
+        // todo
+    }
+
+    private void receiveUpdateMessage() {
+        try {
+            byte byte0 = (byte) inputStream.read();
+            byte byte1 = (byte) inputStream.read();
+            byte byte2 = (byte) inputStream.read();
+            byte byte3 = (byte) inputStream.read();
+            fourBytesConversionBuffer.put(0, byte0);
+            fourBytesConversionBuffer.put(1, byte1);
+            fourBytesConversionBuffer.put(2, byte2);
+            fourBytesConversionBuffer.put(3, byte3);
+            int ID = fourBytesConversionBuffer.getInt(0);
+            byte0 = (byte) inputStream.read();
+            byte1 = (byte) inputStream.read();
+            twoBytesConversionBuffer.put(0, byte0);
+            twoBytesConversionBuffer.put(1, byte1);
+            int frameSize = twoBytesConversionBuffer.getChar(0);
+            final byte[] buffer = new byte[frameSize];
+            int bytesRead = 0;
+            while (bytesRead < frameSize) {
+                int offset = bytesRead;
+                bytesRead += inputStream.read(buffer, offset, frameSize - bytesRead);
+            }
+            if (newFrameCallback != null) {
+                newFrameCallback.onNewMessage(clientId, BlueLink.UPDATE_MESSAGE, new BlueLinkInputStream(buffer));
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "ReceiveUserMessage Exception", e);
         }
     }
 
@@ -104,16 +160,62 @@ public class ConnectedThread extends Thread {
         if (message == null)
             return;
         try {
-            byte[] header = new byte[HEADER_SIZE];
+            byte[] header = new byte[MESSAGE_HEADER_SIZE];
             int contentLength = message.getSize();
-            byte[] contentLengthTab = twoBytesConversionBuffer.putShort(0, (short) contentLength).array(); // conversion int/byte
+            byte[] contentLengthTab = twoBytesConversionBuffer.putChar(0, (char) contentLength).array(); // conversion int/byte
             header[0] = type;
             header[1] = contentLengthTab[0];
             header[2] = contentLengthTab[1];
-            outputStream.write(header);
-            outputStream.write(message.toByteArray());
+            send(header, message.toByteArray());
         } catch (IOException e) {
             Log.e(BlueLink.TAG, "Send message IO Exception", e);
+        }
+    }
+
+    public void sendNewInstanceMessage(NewInstanceMessage message) {
+        try {
+            byte[] header = new byte[NEW_INSTANCE_MESSAGE_HEADER_SIZE];
+            byte[] idTab = fourBytesConversionBuffer.putInt(0, message.id).array();
+
+            int contentLength = message.out.getSize();
+            byte[] contentLengthTab = twoBytesConversionBuffer.putChar(0, (char) contentLength).array(); // conversion int/byte
+            header[0] = BlueLink.NEW_INSTANCE_MESSAGE;
+            header[1] = idTab[0];
+            header[2] = idTab[1];
+            header[3] = idTab[2];
+            header[4] = idTab[3];
+            header[5] = idTab[3];
+            header[6] = idTab[3];
+            header[7] = contentLengthTab[0];
+            header[8] = contentLengthTab[1];
+            send(header, message.out.toByteArray());
+        } catch (IOException e) {
+            Log.e(BlueLink.TAG, "Send New Instance Message IO Exception", e);
+        }
+    }
+
+    public void sendUpdateMessage(UpdateMessage message) {
+        try {
+            byte[] header = new byte[UPDATE_MESSAGE_HEADER_SIZE];
+            byte[] idTab = fourBytesConversionBuffer.putInt(0, message.id).array();
+            int contentLength = message.out.getSize();
+            byte[] contentLengthTab = twoBytesConversionBuffer.putChar(0, (char) contentLength).array(); // conversion int/byte
+            header[0] = BlueLink.UPDATE_MESSAGE;
+            header[1] = idTab[0];
+            header[2] = idTab[1];
+            header[3] = idTab[2];
+            header[4] = idTab[3];
+            header[5] = contentLengthTab[0];
+            header[6] = contentLengthTab[1];
+            send(header, message.out.toByteArray());
+        } catch (IOException e) {
+            Log.e(BlueLink.TAG, "Send Sync Message IO Exception", e);
+        }
+    }
+
+    private synchronized void send(byte[]... bytes) throws IOException {
+        for (byte[] b : bytes) {
+            outputStream.write(b);
         }
     }
 }

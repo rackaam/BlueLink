@@ -76,11 +76,12 @@ public class MainActivity extends ActionBarActivity {
         logAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, logs);
         logListView.setAdapter(logAdapter);
 
+
         searchForServersButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 blueLinkClient = new BlueLinkClient(MainActivity.this, "BlueLinkTest",
-                        "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", messageProcessor);
+                        "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", null, messageProcessor);
                 blueLinkClient.searchForServer(new OnSearchForServerCallback() {
                     @Override
                     public void onSearchStarted() {
@@ -138,6 +139,7 @@ public class MainActivity extends ActionBarActivity {
                     blueLinkServer.broadcastMessage(message);
             }
         });
+
     }
 
     @Override

@@ -1,78 +1,90 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:paddingLeft="@dimen/activity_horizontal_margin"
-    android:paddingRight="@dimen/activity_horizontal_margin"
-    android:paddingTop="@dimen/activity_vertical_margin"
-    android:paddingBottom="@dimen/activity_vertical_margin"
-    android:focusableInTouchMode="true"
-    tools:context=".MainActivity">
+    android:layout_height="match_parent">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:weightSum="100">
-
-        <Button
-            android:id="@+id/searchForServersButton"
-            android:layout_width="0px"
-            android:layout_height="wrap_content"
-            android:layout_weight="50"
-            android:text="@string/search_for_servers" />
-
-        <Button
-            android:id="@+id/startServerButton"
-            android:layout_width="0px"
-            android:layout_height="wrap_content"
-            android:layout_weight="50"
-            android:text="@string/start_server" />
-
-    </LinearLayout>
-
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:weightSum="100">
-
-        <EditText
-            android:id="@+id/messageField"
-            android:layout_width="0px"
-            android:layout_height="wrap_content"
-            android:layout_weight="70" />
-
-        <Button
-            android:id="@+id/sendButton"
-            android:layout_width="0px"
-            android:layout_height="wrap_content"
-            android:layout_weight="30"
-            android:text="@string/send" />
-
-    </LinearLayout>
-
-
-    <LinearLayout
+    <LinearLayout xmlns:tools="http://schemas.android.com/tools"
+        android:id="@+id/UILayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:weightSum="100">
+        android:paddingLeft="@dimen/activity_horizontal_margin"
+        android:paddingRight="@dimen/activity_horizontal_margin"
+        android:paddingTop="@dimen/activity_vertical_margin"
+        android:paddingBottom="@dimen/activity_vertical_margin"
+        android:focusableInTouchMode="true"
+        android:visibility="gone"
+        tools:context=".MainActivity">
 
-        <ListView
-            android:id="@+id/serverListView"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0px"
-            android:layout_weight="50" />
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="100">
 
-        <ListView
-            android:id="@+id/logListView"
+            <Button
+                android:id="@+id/searchForServersButton"
+                android:layout_width="0px"
+                android:layout_height="wrap_content"
+                android:layout_weight="50"
+                android:text="@string/search_for_servers" />
+
+            <Button
+                android:id="@+id/startServerButton"
+                android:layout_width="0px"
+                android:layout_height="wrap_content"
+                android:layout_weight="50"
+                android:text="@string/start_server" />
+
+        </LinearLayout>
+
+
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0px"
-            android:layout_weight="50"
-            android:transcriptMode="alwaysScroll" />
+            android:layout_height="wrap_content"
+            android:weightSum="100">
+
+            <EditText
+                android:id="@+id/messageField"
+                android:layout_width="0px"
+                android:layout_height="wrap_content"
+                android:layout_weight="70" />
+
+            <Button
+                android:id="@+id/sendButton"
+                android:layout_width="0px"
+                android:layout_height="wrap_content"
+                android:layout_weight="30"
+                android:text="@string/send" />
+
+        </LinearLayout>
+
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:weightSum="100">
+
+            <ListView
+                android:id="@+id/serverListView"
+                android:layout_width="match_parent"
+                android:layout_height="0px"
+                android:layout_weight="50" />
+
+            <ListView
+                android:id="@+id/logListView"
+                android:layout_width="match_parent"
+                android:layout_height="0px"
+                android:layout_weight="50"
+                android:transcriptMode="alwaysScroll" />
+
+        </LinearLayout>
 
     </LinearLayout>
 
-</LinearLayout>
+    <eu.rakam.bluelink.GridSurfaceView
+        android:id="@+id/surfaceView"
+        android:layout_width="@dimen/surfaceSize"
+        android:layout_height="@dimen/surfaceSize" />
+
+</FrameLayout>

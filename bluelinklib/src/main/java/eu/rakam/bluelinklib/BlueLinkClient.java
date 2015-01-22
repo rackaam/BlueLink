@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.util.Log;
+import android.util.SparseArray;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -19,6 +20,8 @@ import eu.rakam.bluelinklib.callbacks.OnNewFrameCallback;
 import eu.rakam.bluelinklib.callbacks.OnNewMessageCallback;
 import eu.rakam.bluelinklib.callbacks.OnSearchForServerCallback;
 import eu.rakam.bluelinklib.callbacks.OnTurnOnBluetoothCallback;
+import eu.rakam.bluelinklib.sync.BLFactory;
+import eu.rakam.bluelinklib.sync.BLSynchronizable;
 import eu.rakam.bluelinklib.threads.ConnectThread;
 import eu.rakam.bluelinklib.threads.ConnectedThread;
 
@@ -36,16 +39,20 @@ public class BlueLinkClient implements OnNewFrameCallback {
     private OnTurnOnBluetoothCallback turnOnBluetoothCallback;
     private OnSearchForServerCallback searchForServerCallback;
 
+    private BLFactory factory;
+    private SparseArray<BLSynchronizable> objects = new SparseArray<>();
 
-    public BlueLinkClient(Activity activity, String serverName, String UUID) {
-        this(activity, serverName, UUID, null);
+    public BlueLinkClient(Activity activity, String serverName, String UUID, BLFactory factory) {
+        this(activity, serverName, UUID, factory, null);
     }
 
 
-    public BlueLinkClient(Activity activity, String serverName, String UUID, OnNewMessageCallback messageCallback) {
+    public BlueLinkClient(Activity activity, String serverName, String UUID, BLFactory factory,
+                          OnNewMessageCallback messageCallback) {
         this.activity = activity;
         this.serverName = serverName;
         this.UUID = java.util.UUID.fromString(UUID);
+        this.factory = factory;
         this.messageCallback = messageCallback;
         this.bluetooth = BluetoothAdapter.getDefaultAdapter();
         registerBroadcastReceivers();
@@ -167,23 +174,26 @@ public class BlueLinkClient implements OnNewFrameCallback {
 
 
     @Override
-    public void onNewFrame(final int senderID, byte messageType, final BlueLinkInputStream in) {
-        switch (messageType) {
-            case BlueLink.USER_MESSAGE:
-                if (messageCallback != null) {
-                    activity.runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            messageCallback.onNewMessage(senderID, in);
-                        }
-                    });
+    public void onNewMessage(final int senderID, byte messageType, final BlueLinkInputStream in) {
+        if (messageCallback != null) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    messageCallback.onNewMessage(senderID, in);
                 }
-                break;
-            case BlueLink.SYNC_MESSAGE:
-                break;
-            default:
-                break;
+            });
         }
+    }
+
+    @Override
+    public void onNewInstanceMessage(String className, int ID, BlueLinkInputStream in) {
+        BLSynchronizable o = factory.instantiate(className, in);
+        objects.put(ID, o);
+    }
+
+    @Override
+    public void onNewSyncMessage(int ID, BlueLinkInputStream in) {
+        // todo
     }
 
 

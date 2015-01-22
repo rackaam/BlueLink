@@ -19,6 +19,11 @@ import eu.rakam.bluelinklib.callbacks.OnNewFrameCallback;
 import eu.rakam.bluelinklib.callbacks.OnNewMessageCallback;
 import eu.rakam.bluelinklib.callbacks.OnOpenServerCallback;
 import eu.rakam.bluelinklib.callbacks.OnTurnOnBluetoothCallback;
+import eu.rakam.bluelinklib.sync.BLSyncThread;
+import eu.rakam.bluelinklib.sync.BLSynchronizable;
+import eu.rakam.bluelinklib.sync.messages.Message;
+import eu.rakam.bluelinklib.sync.messages.NewInstanceMessage;
+import eu.rakam.bluelinklib.sync.messages.UpdateMessage;
 import eu.rakam.bluelinklib.threads.ConnectedThread;
 import eu.rakam.bluelinklib.threads.ServerHandshakingThread;
 import eu.rakam.bluelinklib.threads.ServerThread;
@@ -35,6 +40,7 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
     private final BluetoothAdapter bluetooth;
     private final ArrayList<Client> clientList = new ArrayList<>();
     private ServerThread serverThread;
+    private BLSyncThread syncThread;
 
     private OnNewMessageCallback messageCallback;
     private OnTurnOnBluetoothCallback turnOnBluetoothCallback;
@@ -82,6 +88,18 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
         });
     }
 
+    public void syncNewInstance(BLSynchronizable synchronizable, BlueLinkOutputStream out) {
+        syncThread.syncNewInstance(synchronizable, out);
+    }
+
+    public void sync(BLSynchronizable synchronizable) {
+        syncThread.sync(synchronizable);
+    }
+
+    public void sync(BLSynchronizable synchronizable, BlueLinkOutputStream out) {
+        syncThread.sync(synchronizable, out);
+    }
+
 
     public void sendMessage(Client client, String message) {
         if (message == null)
@@ -103,6 +121,7 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
         client.getConnectedThread().sendMessage(type, message);
     }
 
+
     public void broadcastMessage(String message) {
         if (message == null)
             return;
@@ -111,9 +130,11 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
         broadcastMessage(BlueLink.USER_MESSAGE, outputStream);
     }
 
+
     public void broadcastMessage(BlueLinkOutputStream message) {
         broadcastMessage(BlueLink.USER_MESSAGE, message);
     }
+
 
     private void broadcastMessage(Byte type, BlueLinkOutputStream message) {
         if (message == null)
@@ -121,6 +142,23 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
         for (Client client : clientList) {
             client.getConnectedThread().sendMessage(type, message);
         }
+    }
+
+
+    public void broadcastSyncMessage(Message message) {
+        switch (message.getType()) {
+            case BlueLink.NEW_INSTANCE_MESSAGE:
+                for (Client client : clientList) {
+                    client.getConnectedThread().sendNewInstanceMessage((NewInstanceMessage) message);
+                }
+                break;
+            case BlueLink.UPDATE_MESSAGE:
+                for (Client client : clientList) {
+                    client.getConnectedThread().sendUpdateMessage((UpdateMessage) message);
+                }
+                break;
+        }
+
     }
 
     /**
@@ -215,7 +253,7 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
 
 
     @Override
-    public void onNewFrame(final int senderID, byte messageType, final BlueLinkInputStream in) {
+    public void onNewMessage(final int senderID, byte messageType, final BlueLinkInputStream in) {
         switch (messageType) {
             case BlueLink.USER_MESSAGE:
                 if (messageCallback != null) {
@@ -227,11 +265,21 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
                     });
                 }
                 break;
-            case BlueLink.SYNC_MESSAGE:
+            case BlueLink.UPDATE_MESSAGE:
                 break;
             default:
                 break;
         }
+    }
+
+    @Override
+    public void onNewInstanceMessage(String className, int ID, BlueLinkInputStream in) {
+
+    }
+
+    @Override
+    public void onNewSyncMessage(int ID, BlueLinkInputStream in) {
+
     }
 
 
