@@ -46,6 +46,14 @@ public class BlueLinkClient implements OnNewUserMessageCallback, OnNewSyncMessag
     private SparseArray<BLSynchronizable> objects = new SparseArray<>();
 
 
+    /**
+     * @param activity
+     * @param handler         the thread associated with this handler will be used to run all the callback methods
+     * @param serverName
+     * @param UUID            same UUID as {@link eu.rakam.bluelinklib.BlueLinkServer}
+     * @param factory         factory able to instantiate all the classes that implement the {@link eu.rakam.bluelinklib.sync.BLSynchronizable} interface
+     * @param messageCallback callback method called when the client receive a message sent by {@link eu.rakam.bluelinklib.BlueLinkServer#sendMessage(Client, BlueLinkOutputStream)}.
+     */
     public BlueLinkClient(Activity activity, Handler handler, String serverName, String UUID, BLFactory factory,
                           OnNewMessageCallback messageCallback) {
         this.activity = activity;
@@ -84,7 +92,7 @@ public class BlueLinkClient implements OnNewUserMessageCallback, OnNewSyncMessag
     /**
      * Connects to the server.
      * <p/>
-     * <p>The data sent to the server during the connection (<code>out</code>) can be retrieved by
+     * <p>The data sent to the server during the connection #out can be retrieved by
      * the server in the {@link eu.rakam.bluelinklib.callbacks.OnOpenServerCallback#onNewClient(Client, BlueLinkInputStream)}
      * callback method.
      *
@@ -123,7 +131,13 @@ public class BlueLinkClient implements OnNewUserMessageCallback, OnNewSyncMessag
         }
     }
 
-
+    /**
+     * Convenient method to send a basic string to the server.
+     * The message can be retrieved by the {@link eu.rakam.bluelinklib.BlueLinkServer}
+     * with the {@link eu.rakam.bluelinklib.callbacks.OnNewMessageCallback} passed to his constructor.
+     *
+     * @param message the string to send
+     */
     public void sendMessage(String message) {
         if (message == null)
             return;
@@ -132,7 +146,13 @@ public class BlueLinkClient implements OnNewUserMessageCallback, OnNewSyncMessag
         sendMessage(BlueLink.USER_MESSAGE, outputStream);
     }
 
-
+    /**
+     * Sends the message to the server.
+     * The message can be retrieved by the {@link eu.rakam.bluelinklib.BlueLinkServer}
+     * with the {@link eu.rakam.bluelinklib.callbacks.OnNewMessageCallback} passed to his constructor.
+     *
+     * @param message the message to send
+     */
     public void sendMessage(BlueLinkOutputStream message) {
         sendMessage(BlueLink.USER_MESSAGE, message);
     }
@@ -146,7 +166,13 @@ public class BlueLinkClient implements OnNewUserMessageCallback, OnNewSyncMessag
         }
     }
 
-
+    /**
+     * This method must be called every time from {@link android.app.Activity#onActivityResult(int, int, android.content.Intent)}.
+     *
+     * @param requestCode
+     * @param resultCode
+     * @param data
+     */
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
             case BlueLink.ENABLE_BLUETOOTH:
@@ -185,13 +211,11 @@ public class BlueLinkClient implements OnNewUserMessageCallback, OnNewSyncMessag
         }
     }
 
-
     private void startDiscovery(final OnSearchForServerCallback callback) {
         searchForServerCallback = callback;
         serverList.clear();
         bluetooth.startDiscovery();
     }
-
 
     @Override
     public void onMessage(final int senderID, final BlueLinkInputStream in) {

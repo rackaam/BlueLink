@@ -64,7 +64,6 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 final Server server = servers.get(position);
-                log("Begins connection to " + server.getName());
                 BlueLinkOutputStream out = new BlueLinkOutputStream();
                 out.writeString(Build.MODEL);
                 blueLinkClient.connectToServer(server, out, new OnConnectToServerCallback() {
@@ -118,7 +117,7 @@ public class MainActivity extends ActionBarActivity {
         startServerButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                blueLinkServer = new BlueLinkServer(MainActivity.this, "BlueLinkTest",
+                blueLinkServer = new BlueLinkServer(MainActivity.this, new Handler(), "BlueLinkTest",
                         "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", messageProcessor);
                 blueLinkServer.openServer(new OnOpenServerCallback() {
                     @Override

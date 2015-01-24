@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
+import android.os.Handler;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
     private static final int DISCOVERABLE_DURATION = 60;
 
     private Activity activity;
+    private Handler handler;
     private String serverName;
     private java.util.UUID UUID;
 
@@ -48,14 +50,16 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
 
 
     /**
-     * @param serverName Name of the server seen by other players
+     * @param activity
+     * @param handler         the thread associated with this handler will be used to run all the callback methods
+     * @param serverName
+     * @param UUID            unique ID for your application
+     * @param messageCallback callback method called when the client receive a message sent by {@link eu.rakam.bluelinklib.BlueLinkServer#sendMessage(Client, BlueLinkOutputStream)}.
      */
-    public BlueLinkServer(Activity activity, String serverName, String UUID) {
-        this(activity, serverName, UUID, null);
-    }
-
-    public BlueLinkServer(Activity activity, String serverName, String UUID, OnNewMessageCallback messageCallback) {
+    public BlueLinkServer(Activity activity, Handler handler, String serverName, String UUID,
+                          OnNewMessageCallback messageCallback) {
         this.activity = activity;
+        this.handler = handler;
         this.serverName = serverName;
         this.UUID = java.util.UUID.fromString(UUID);
         this.messageCallback = messageCallback;
@@ -72,35 +76,75 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
         openServerCallback = callback;
         turnOnBluetooth(new OnTurnOnBluetoothCallback() {
             @Override
-            public void onBluetoothOn(IOException e) {
+            public void onBluetoothOn(final IOException e) {
                 if (e != null) {
-                    openServerCallback.onOpen(e);
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            openServerCallback.onOpen(e);
+                        }
+                    });
                 } else {
                     try {
                         bluetooth.setName(serverName + Build.MODEL);
                         openServer();
                         makeDiscoverable(DISCOVERABLE_DURATION);
-                    } catch (IOException e1) {
-                        openServerCallback.onOpen(e1);
+                    } catch (final IOException e1) {
+                        handler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                openServerCallback.onOpen(e1);
+                            }
+                        });
                     }
                 }
             }
         });
     }
 
+    /**
+     * Syncs a new instance with all the clients.
+     *
+     * @param synchronizable the new instance to sync
+     * @param out            data to send to the client's factory
+     */
     public void syncNewInstance(BLSynchronizable synchronizable, BlueLinkOutputStream out) {
         syncThread.syncNewInstance(synchronizable, out);
     }
 
+    /**
+     * Syncs the instance with its equivalents.
+     * Calls {@link eu.rakam.bluelinklib.sync.BLSynchronizable#getDataToSync()} to get the data to
+     * send to the others instances.
+     * The equivalents will get the data to sync in the
+     * {@link eu.rakam.bluelinklib.sync.BLSynchronizable#syncData(BlueLinkInputStream)} method.
+     *
+     * @param synchronizable instance to sync
+     */
     public void sync(BLSynchronizable synchronizable) {
         syncThread.sync(synchronizable);
     }
 
+    /**
+     * Syncs the instance with its equivalents.
+     * The equivalents will get the data to sync in the
+     * {@link eu.rakam.bluelinklib.sync.BLSynchronizable#syncData(BlueLinkInputStream)} method.
+     *
+     * @param synchronizable instance to sync
+     * @param out            data sent to its equivalents
+     */
     public void sync(BLSynchronizable synchronizable, BlueLinkOutputStream out) {
         syncThread.sync(synchronizable, out);
     }
 
-
+    /**
+     * Convenient method to send a basic string to a client.
+     * The message can be retrieved by the {@link eu.rakam.bluelinklib.BlueLinkClient}
+     * with the {@link eu.rakam.bluelinklib.callbacks.OnNewMessageCallback} passed to his constructor.
+     *
+     * @param client  recipient
+     * @param message string to send
+     */
     public void sendMessage(Client client, String message) {
         if (message == null)
             return;
@@ -109,11 +153,17 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
         sendMessage(client, BlueLink.USER_MESSAGE, outputStream);
     }
 
-
+    /**
+     * Sends the message to the client.
+     * The message can be retrieved by the {@link eu.rakam.bluelinklib.BlueLinkClient}
+     * with the {@link eu.rakam.bluelinklib.callbacks.OnNewMessageCallback} passed to his constructor.
+     *
+     * @param client  recipient
+     * @param message message to send
+     */
     public void sendMessage(Client client, BlueLinkOutputStream message) {
         sendMessage(client, BlueLink.USER_MESSAGE, message);
     }
-
 
     private void sendMessage(Client client, byte type, BlueLinkOutputStream message) {
         if (message == null)
@@ -121,7 +171,11 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
         client.getConnectedServerThread().sendMessage(type, message);
     }
 
-
+    /**
+     * Sends the string to all the clients.
+     *
+     * @param message
+     */
     public void broadcastMessage(String message) {
         if (message == null)
             return;
@@ -130,7 +184,11 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
         broadcastMessage(BlueLink.USER_MESSAGE, outputStream);
     }
 
-
+    /**
+     * Sends the message to all the clients.
+     *
+     * @param message
+     */
     public void broadcastMessage(BlueLinkOutputStream message) {
         broadcastMessage(BlueLink.USER_MESSAGE, message);
     }
@@ -144,7 +202,11 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
         }
     }
 
-
+    /**
+     * Used by BlueLink. Must not be called.
+     *
+     * @param message
+     */
     public void broadcastSyncMessage(Message message) {
         switch (message.getType()) {
             case BlueLink.NEW_INSTANCE_MESSAGE:
@@ -171,19 +233,40 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
         }
     }
 
-
+    /**
+     * This method must be called every time from {@link android.app.Activity#onActivityResult(int, int, android.content.Intent)}.
+     *
+     * @param requestCode
+     * @param resultCode
+     * @param data
+     */
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
             case BlueLink.ENABLE_BLUETOOTH:
                 if (resultCode == Activity.RESULT_CANCELED && turnOnBluetoothCallback != null) {
-                    turnOnBluetoothCallback.onBluetoothOn(new IOException("User cancelled the bluetooth activation"));
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            turnOnBluetoothCallback.onBluetoothOn(new IOException("User cancelled the bluetooth activation"));
+                        }
+                    });
                 }
                 break;
             case DISCOVERY_REQUEST:
                 if (resultCode == DISCOVERABLE_DURATION && openServerCallback != null) {
-                    openServerCallback.onOpen(null);
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            openServerCallback.onOpen(null);
+                        }
+                    });
                 } else if (resultCode == Activity.RESULT_CANCELED && openServerCallback != null) {
-                    openServerCallback.onOpen(new IOException("User cancelled the discoverability request"));
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            openServerCallback.onOpen(new IOException("User cancelled the discoverability request"));
+                        }
+                    });
                 }
             default:
                 break;
@@ -240,7 +323,6 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
         }
     }
 
-
     @Override
     public void onNewClient(final Client client, final BlueLinkInputStream in) {
         startSyncThread();
@@ -248,7 +330,7 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
         clientList.add(client);
         client.setConnectedServerThread(thread);
         if (openServerCallback != null) {
-            activity.runOnUiThread(new Runnable() {
+            handler.post(new Runnable() {
                 @Override
                 public void run() {
                     openServerCallback.onNewClient(client, in);
@@ -258,11 +340,10 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
         thread.start();
     }
 
-
     @Override
     public void onMessage(final int senderID, final BlueLinkInputStream in) {
         if (messageCallback != null) {
-            activity.runOnUiThread(new Runnable() {
+            handler.post(new Runnable() {
                 @Override
                 public void run() {
                     messageCallback.onNewMessage(senderID, in);
@@ -270,7 +351,6 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
             });
         }
     }
-
 
     private void registerBroadcastReceivers() {
         BroadcastReceiver bluetoothStateBR = new BroadcastReceiver() {
@@ -315,16 +395,13 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
         activity.registerReceiver(scanModeChangedBR, new IntentFilter(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED));
     }
 
-
     public OnNewMessageCallback getMessageCallback() {
         return messageCallback;
     }
 
-
     public void setMessageCallback(OnNewMessageCallback messageCallback) {
         this.messageCallback = messageCallback;
     }
-
 
     public List<Client> getClientList() {
         return (List<Client>) clientList.clone();
