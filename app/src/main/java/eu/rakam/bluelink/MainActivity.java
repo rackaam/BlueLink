@@ -3,6 +3,7 @@ package eu.rakam.bluelink;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.Menu;
@@ -40,12 +41,18 @@ public class MainActivity extends ActionBarActivity {
     private ArrayAdapter<Server> serverAdapter;
     private ArrayAdapter<String> logAdapter;
     private MessageProcessor messageProcessor = new MessageProcessor(this);
+    private View UILayout;
+    private GridSurfaceView surfaceView;
+    private Model model = new Model();
+    private EditText editText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        EditText messageField = (EditText) findViewById(R.id.messageField);
+        editText = (EditText) findViewById(R.id.messageField);
+        UILayout = findViewById(R.id.UILayout);
+        surfaceView = (GridSurfaceView) findViewById(R.id.surfaceView);
         Button searchForServersButton = (Button) findViewById(R.id.searchForServersButton);
         Button startServerButton = (Button) findViewById(R.id.startServerButton);
         Button sendButton = (Button) findViewById(R.id.sendButton);
@@ -63,10 +70,13 @@ public class MainActivity extends ActionBarActivity {
                 blueLinkClient.connectToServer(server, out, new OnConnectToServerCallback() {
                     @Override
                     public void onConnect(IOException e) {
-                        if (e != null)
+                        editText.setText("azerty");
+                        if (e != null) {
                             log("Connection error : " + e);
-                        else
+                        } else {
                             log("Connected to " + server.getName());
+                            startTestClient();
+                        }
                     }
                 });
             }
@@ -76,20 +86,21 @@ public class MainActivity extends ActionBarActivity {
         logAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, logs);
         logListView.setAdapter(logAdapter);
 
-
         searchForServersButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                blueLinkClient = new BlueLinkClient(MainActivity.this, "BlueLinkTest",
-                        "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", null, messageProcessor);
+                blueLinkClient = new BlueLinkClient(MainActivity.this, new Handler(), "BlueLinkTest",
+                        "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", new Factory(model), messageProcessor);
                 blueLinkClient.searchForServer(new OnSearchForServerCallback() {
                     @Override
                     public void onSearchStarted() {
+                        editText.setText("azerty");
                         Log.d(TAG, "Search Started");
                     }
 
                     @Override
                     public void onNewServer(Server server) {
+                        editText.setText("azerty");
                         Log.d(TAG, "New Server : " + server.getName());
                         servers.add(server);
                         serverAdapter.notifyDataSetChanged();
@@ -97,6 +108,7 @@ public class MainActivity extends ActionBarActivity {
 
                     @Override
                     public void onSearchFinished(List<Server> servers) {
+                        editText.setText("azerty");
                         Log.d(TAG, "Search Finished");
                     }
                 });
@@ -111,6 +123,7 @@ public class MainActivity extends ActionBarActivity {
                 blueLinkServer.openServer(new OnOpenServerCallback() {
                     @Override
                     public void onOpen(Exception e) {
+                        editText.setText("azerty");
                         if (e == null)
                             log("Server ON");
                         else
@@ -119,8 +132,10 @@ public class MainActivity extends ActionBarActivity {
 
                     @Override
                     public void onNewClient(Client client, BlueLinkInputStream in) {
+                        editText.setText("azerty");
                         String clientName = in.readString();
                         log("New client : " + clientName);
+                        startTestServer();
                     }
                 });
             }
@@ -140,6 +155,22 @@ public class MainActivity extends ActionBarActivity {
             }
         });
 
+    }
+
+    private void startTestServer() {
+        UILayout.setVisibility(View.GONE);
+        surfaceView.setVisibility(View.VISIBLE);
+        Engine engine = new Engine(this, blueLinkServer, model);
+        surfaceView.setModel(model);
+        new EngineThread(engine).start();
+        new RenderingThread(this, surfaceView).start();
+    }
+
+    private void startTestClient() {
+        UILayout.setVisibility(View.GONE);
+        surfaceView.setVisibility(View.VISIBLE);
+        surfaceView.setModel(model);
+        new RenderingThread(this, surfaceView).start();
     }
 
     @Override

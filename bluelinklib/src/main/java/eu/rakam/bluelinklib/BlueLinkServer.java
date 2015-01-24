@@ -15,8 +15,8 @@ import java.util.List;
 
 import eu.rakam.bluelinklib.callbacks.OnNewClientCallback;
 import eu.rakam.bluelinklib.callbacks.OnNewConnectionCallback;
-import eu.rakam.bluelinklib.callbacks.OnNewFrameCallback;
 import eu.rakam.bluelinklib.callbacks.OnNewMessageCallback;
+import eu.rakam.bluelinklib.callbacks.OnNewUserMessageCallback;
 import eu.rakam.bluelinklib.callbacks.OnOpenServerCallback;
 import eu.rakam.bluelinklib.callbacks.OnTurnOnBluetoothCallback;
 import eu.rakam.bluelinklib.sync.BLSyncThread;
@@ -24,11 +24,11 @@ import eu.rakam.bluelinklib.sync.BLSynchronizable;
 import eu.rakam.bluelinklib.sync.messages.Message;
 import eu.rakam.bluelinklib.sync.messages.NewInstanceMessage;
 import eu.rakam.bluelinklib.sync.messages.UpdateMessage;
-import eu.rakam.bluelinklib.threads.ConnectedThread;
+import eu.rakam.bluelinklib.threads.ConnectedServerThread;
 import eu.rakam.bluelinklib.threads.ServerHandshakingThread;
 import eu.rakam.bluelinklib.threads.ServerThread;
 
-public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
+public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCallback {
 
     private static final int DISCOVERY_REQUEST = 22001;
     private static final int DISCOVERABLE_DURATION = 60;
@@ -40,7 +40,7 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
     private final BluetoothAdapter bluetooth;
     private final ArrayList<Client> clientList = new ArrayList<>();
     private ServerThread serverThread;
-    private BLSyncThread syncThread;
+    private BLSyncThread syncThread = new BLSyncThread(this);
 
     private OnNewMessageCallback messageCallback;
     private OnTurnOnBluetoothCallback turnOnBluetoothCallback;
@@ -118,7 +118,7 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
     private void sendMessage(Client client, byte type, BlueLinkOutputStream message) {
         if (message == null)
             return;
-        client.getConnectedThread().sendMessage(type, message);
+        client.getConnectedServerThread().sendMessage(type, message);
     }
 
 
@@ -140,7 +140,7 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
         if (message == null)
             return;
         for (Client client : clientList) {
-            client.getConnectedThread().sendMessage(type, message);
+            client.getConnectedServerThread().sendMessage(type, message);
         }
     }
 
@@ -149,12 +149,12 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
         switch (message.getType()) {
             case BlueLink.NEW_INSTANCE_MESSAGE:
                 for (Client client : clientList) {
-                    client.getConnectedThread().sendNewInstanceMessage((NewInstanceMessage) message);
+                    client.getConnectedServerThread().sendNewInstanceMessage((NewInstanceMessage) message);
                 }
                 break;
             case BlueLink.UPDATE_MESSAGE:
                 for (Client client : clientList) {
-                    client.getConnectedThread().sendUpdateMessage((UpdateMessage) message);
+                    client.getConnectedServerThread().sendUpdateMessage((UpdateMessage) message);
                 }
                 break;
         }
@@ -228,18 +228,25 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
             public void onNewConnection(BluetoothSocket socket) {
                 ServerHandshakingThread thread = new ServerHandshakingThread(BlueLinkServer.this, socket);
                 thread.start();
-
             }
         }, bluetooth, serverName, UUID);
         serverThread.start();
     }
 
+    private void startSyncThread() {
+        if (syncThread == null || !syncThread.isAlive()) {
+            syncThread = new BLSyncThread(this);
+            syncThread.start();
+        }
+    }
+
 
     @Override
     public void onNewClient(final Client client, final BlueLinkInputStream in) {
-        ConnectedThread thread = new ConnectedThread(client, this);
+        startSyncThread();
+        ConnectedServerThread thread = new ConnectedServerThread(client, this);
         clientList.add(client);
-        client.setConnectedThread(thread);
+        client.setConnectedServerThread(thread);
         if (openServerCallback != null) {
             activity.runOnUiThread(new Runnable() {
                 @Override
@@ -253,33 +260,15 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewFrameCallback {
 
 
     @Override
-    public void onNewMessage(final int senderID, byte messageType, final BlueLinkInputStream in) {
-        switch (messageType) {
-            case BlueLink.USER_MESSAGE:
-                if (messageCallback != null) {
-                    activity.runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            messageCallback.onNewMessage(senderID, in);
-                        }
-                    });
+    public void onMessage(final int senderID, final BlueLinkInputStream in) {
+        if (messageCallback != null) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    messageCallback.onNewMessage(senderID, in);
                 }
-                break;
-            case BlueLink.UPDATE_MESSAGE:
-                break;
-            default:
-                break;
+            });
         }
-    }
-
-    @Override
-    public void onNewInstanceMessage(String className, int ID, BlueLinkInputStream in) {
-
-    }
-
-    @Override
-    public void onNewSyncMessage(int ID, BlueLinkInputStream in) {
-
     }
 
 

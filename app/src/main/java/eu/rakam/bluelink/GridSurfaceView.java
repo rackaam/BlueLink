@@ -2,6 +2,7 @@ package eu.rakam.bluelink;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.AttributeSet;
 import android.view.SurfaceHolder;
@@ -9,10 +10,9 @@ import android.view.SurfaceView;
 
 public class GridSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
 
-
-    private GridThread thread;
     private SurfaceHolder surfaceHolder;
     private Paint paint;
+    private Model model;
 
     public GridSurfaceView(Context context) {
         super(context);
@@ -29,23 +29,26 @@ public class GridSurfaceView extends SurfaceView implements SurfaceHolder.Callba
         init();
     }
 
+    public void setModel(Model model) {
+        this.model = model;
+    }
+
     private void init() {
         paint = new Paint();
         paint.setStyle(Paint.Style.FILL);
-        thread = new GridThread(this);
         surfaceHolder = getHolder();
         surfaceHolder.addCallback(this);
     }
 
-
-    private void drawSquares(Canvas canvas) {
-        // todo
+    public void drawSquares(Canvas canvas) {
+        for (Square s : model.squares) {
+            paint.setColor(Color.rgb(s.getR(), s.getG(), s.getB()));
+            canvas.drawRect(s.getX(), s.getY(), s.getX() + s.getW(), s.getY() + s.getH(), paint);
+        }
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        thread.setRunning(true);
-        thread.start();
     }
 
     @Override
@@ -55,49 +58,6 @@ public class GridSurfaceView extends SurfaceView implements SurfaceHolder.Callba
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        boolean retry = true;
-        thread.setRunning(false);
-        while (retry) {
-            try {
-                thread.join();
-                retry = false;
-            } catch (InterruptedException e) {
-            }
-        }
-    }
-
-    private class GridThread extends Thread {
-
-        GridSurfaceView surfaceView;
-        private boolean running = false;
-
-        public GridThread(GridSurfaceView view) {
-            surfaceView = view;
-        }
-
-        public void setRunning(boolean run) {
-            running = run;
-        }
-
-        @Override
-        public void run() {
-            while (running) {
-                Canvas canvas = surfaceView.getHolder().lockCanvas();
-
-                if (canvas != null) {
-                    synchronized (surfaceView.getHolder()) {
-                        surfaceView.drawSquares(canvas);
-                    }
-                    surfaceView.getHolder().unlockCanvasAndPost(canvas);
-                }
-
-                try {
-                    sleep(1500);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
     }
 
 }

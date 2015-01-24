@@ -12,7 +12,7 @@
         android:paddingTop="@dimen/activity_vertical_margin"
         android:paddingBottom="@dimen/activity_vertical_margin"
         android:focusableInTouchMode="true"
-        android:visibility="gone"
+        android:visibility="visible"
         tools:context=".MainActivity">
 
         <LinearLayout
@@ -85,6 +85,7 @@
     <eu.rakam.bluelink.GridSurfaceView
         android:id="@+id/surfaceView"
         android:layout_width="@dimen/surfaceSize"
-        android:layout_height="@dimen/surfaceSize" />
+        android:layout_height="@dimen/surfaceSize"
+        android:visibility="gone" />
 
 </FrameLayout>

@@ -17,6 +17,7 @@ public class Square implements BLSynchronizable {
 
     public Square(BlueLinkServer server, int x, int y, int w, int h, int r, int g, int b) {
         init(x, y, w, h, r, g, b);
+        this.server = server;
         this.id = BlueLink.getID();
 
         BlueLinkOutputStream out = new BlueLinkOutputStream();
@@ -41,6 +42,14 @@ public class Square implements BLSynchronizable {
         this.b = b;
     }
 
+    public int getW() {
+        return w;
+    }
+
+    public int getH() {
+        return h;
+    }
+
     public int getX() {
         return x;
     }
@@ -61,6 +70,7 @@ public class Square implements BLSynchronizable {
         this.r = r;
         this.g = g;
         this.b = b;
+        server.sync(this);
     }
 
     public int getR() {

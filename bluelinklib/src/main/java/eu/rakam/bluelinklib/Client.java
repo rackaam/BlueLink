@@ -2,7 +2,7 @@ package eu.rakam.bluelinklib;
 
 import android.bluetooth.BluetoothSocket;
 
-import eu.rakam.bluelinklib.threads.ConnectedThread;
+import eu.rakam.bluelinklib.threads.ConnectedServerThread;
 
 public class Client {
 
@@ -11,7 +11,7 @@ public class Client {
     private final int id;
     private final byte protocol;
     private final BluetoothSocket socket;
-    private ConnectedThread connectedThread;
+    private ConnectedServerThread connectedServerThread;
 
     public static synchronized int generateClientId() {
         idCount++;
@@ -36,11 +36,11 @@ public class Client {
         return socket;
     }
 
-    public ConnectedThread getConnectedThread() {
-        return connectedThread;
+    public ConnectedServerThread getConnectedServerThread() {
+        return connectedServerThread;
     }
 
-    protected void setConnectedThread(ConnectedThread connectedThread) {
-        this.connectedThread = connectedThread;
+    public void setConnectedServerThread(ConnectedServerThread connectedServerThread) {
+        this.connectedServerThread = connectedServerThread;
     }
 }

@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Handler;
 import android.util.Log;
 import android.util.SparseArray;
 
@@ -16,25 +17,27 @@ import java.util.ArrayList;
 import java.util.List;
 
 import eu.rakam.bluelinklib.callbacks.OnConnectToServerCallback;
-import eu.rakam.bluelinklib.callbacks.OnNewFrameCallback;
 import eu.rakam.bluelinklib.callbacks.OnNewMessageCallback;
+import eu.rakam.bluelinklib.callbacks.OnNewSyncMessageCallback;
+import eu.rakam.bluelinklib.callbacks.OnNewUserMessageCallback;
 import eu.rakam.bluelinklib.callbacks.OnSearchForServerCallback;
 import eu.rakam.bluelinklib.callbacks.OnTurnOnBluetoothCallback;
 import eu.rakam.bluelinklib.sync.BLFactory;
 import eu.rakam.bluelinklib.sync.BLSynchronizable;
 import eu.rakam.bluelinklib.threads.ConnectThread;
-import eu.rakam.bluelinklib.threads.ConnectedThread;
+import eu.rakam.bluelinklib.threads.ConnectedClientThread;
 
-public class BlueLinkClient implements OnNewFrameCallback {
+public class BlueLinkClient implements OnNewUserMessageCallback, OnNewSyncMessageCallback {
 
     private Activity activity;
+    private Handler handler;
     private String serverName;
     private java.util.UUID UUID;
 
     private BluetoothAdapter bluetooth;
     private final ArrayList<Server> serverList = new ArrayList<>();
 
-    private ConnectedThread connectedThread;
+    private ConnectedClientThread connectedClientThread;
     private OnNewMessageCallback messageCallback;
     private OnTurnOnBluetoothCallback turnOnBluetoothCallback;
     private OnSearchForServerCallback searchForServerCallback;
@@ -42,14 +45,11 @@ public class BlueLinkClient implements OnNewFrameCallback {
     private BLFactory factory;
     private SparseArray<BLSynchronizable> objects = new SparseArray<>();
 
-    public BlueLinkClient(Activity activity, String serverName, String UUID, BLFactory factory) {
-        this(activity, serverName, UUID, factory, null);
-    }
 
-
-    public BlueLinkClient(Activity activity, String serverName, String UUID, BLFactory factory,
+    public BlueLinkClient(Activity activity, Handler handler, String serverName, String UUID, BLFactory factory,
                           OnNewMessageCallback messageCallback) {
         this.activity = activity;
+        this.handler = handler;
         this.serverName = serverName;
         this.UUID = java.util.UUID.fromString(UUID);
         this.factory = factory;
@@ -68,7 +68,12 @@ public class BlueLinkClient implements OnNewFrameCallback {
             @Override
             public void onBluetoothOn(IOException e) {
                 if (e != null) {
-                    callback.onSearchFinished(null);
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            callback.onSearchFinished(null);
+                        }
+                    });
                 } else {
                     startDiscovery(callback);
                 }
@@ -95,10 +100,10 @@ public class BlueLinkClient implements OnNewFrameCallback {
                 @Override
                 public void onConnect(final IOException e) {
                     if (e == null) {
-                        connectedThread = new ConnectedThread(socket, BlueLinkClient.this);
-                        connectedThread.start();
+                        connectedClientThread = new ConnectedClientThread(socket, BlueLinkClient.this, BlueLinkClient.this);
+                        connectedClientThread.start();
                     }
-                    activity.runOnUiThread(new Runnable() {
+                    handler.post(new Runnable() {
                         @Override
                         public void run() {
                             callback.onConnect(e);
@@ -107,9 +112,14 @@ public class BlueLinkClient implements OnNewFrameCallback {
                 }
             });
             connectThread.start();
-        } catch (IOException e) {
+        } catch (final IOException e) {
             Log.e(BlueLink.TAG, "Bluetooth client IO Exception", e);
-            callback.onConnect(e);
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    callback.onConnect(e);
+                }
+            });
         }
     }
 
@@ -131,8 +141,8 @@ public class BlueLinkClient implements OnNewFrameCallback {
     private void sendMessage(byte type, BlueLinkOutputStream message) {
         if (message == null)
             return;
-        if (connectedThread != null) {
-            connectedThread.sendMessage(type, message);
+        if (connectedClientThread != null) {
+            connectedClientThread.sendMessage(type, message);
         }
     }
 
@@ -141,7 +151,12 @@ public class BlueLinkClient implements OnNewFrameCallback {
         switch (requestCode) {
             case BlueLink.ENABLE_BLUETOOTH:
                 if (resultCode == Activity.RESULT_CANCELED && turnOnBluetoothCallback != null) {
-                    turnOnBluetoothCallback.onBluetoothOn(new IOException("User cancelled the bluetooth activation"));
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            turnOnBluetoothCallback.onBluetoothOn(new IOException("User cancelled the bluetooth activation"));
+                        }
+                    });
                 }
                 break;
             default:
@@ -156,8 +171,13 @@ public class BlueLinkClient implements OnNewFrameCallback {
      */
     private void turnOnBluetooth(final OnTurnOnBluetoothCallback callback) {
         if (bluetooth.isEnabled() && callback != null) {
-            callback.onBluetoothOn(null);
-            turnOnBluetoothCallback = null;
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    callback.onBluetoothOn(null);
+                    turnOnBluetoothCallback = null;
+                }
+            });
         } else {
             turnOnBluetoothCallback = callback;
             Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -174,9 +194,9 @@ public class BlueLinkClient implements OnNewFrameCallback {
 
 
     @Override
-    public void onNewMessage(final int senderID, byte messageType, final BlueLinkInputStream in) {
+    public void onMessage(final int senderID, final BlueLinkInputStream in) {
         if (messageCallback != null) {
-            activity.runOnUiThread(new Runnable() {
+            handler.post(new Runnable() {
                 @Override
                 public void run() {
                     messageCallback.onNewMessage(senderID, in);
@@ -186,16 +206,28 @@ public class BlueLinkClient implements OnNewFrameCallback {
     }
 
     @Override
-    public void onNewInstanceMessage(String className, int ID, BlueLinkInputStream in) {
-        BLSynchronizable o = factory.instantiate(className, in);
-        objects.put(ID, o);
+    public void onNewInstanceMessage(final String className, final int ID, final BlueLinkInputStream in) {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                BLSynchronizable o = factory.instantiate(className, in);
+                objects.put(ID, o);
+            }
+        });
     }
 
     @Override
-    public void onNewSyncMessage(int ID, BlueLinkInputStream in) {
-        // todo
+    public void onUpdateMessage(int id, final BlueLinkInputStream in) {
+        final BLSynchronizable o = objects.get(id, null);
+        if (o != null) {
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    o.syncData(in);
+                }
+            });
+        }
     }
-
 
     private void registerBroadcastReceivers() {
         BroadcastReceiver bluetoothStateBR = new BroadcastReceiver() {
@@ -262,11 +294,9 @@ public class BlueLinkClient implements OnNewFrameCallback {
         activity.registerReceiver(newDeviceBR, new IntentFilter(BluetoothDevice.ACTION_FOUND));
     }
 
-
     public OnNewMessageCallback getMessageCallback() {
         return messageCallback;
     }
-
 
     public void setMessageCallback(OnNewMessageCallback messageCallback) {
         this.messageCallback = messageCallback;
