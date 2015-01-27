@@ -31,6 +31,7 @@ import eu.rakam.bluelinklib.callbacks.OnSearchForServerCallback;
 public class SquaresActivity extends ActionBarActivity {
 
     private static final String TAG = "BlueLink SquaresActivity";
+    private static final String BASENAME = "Squares";
 
     private BlueLinkClient blueLinkClient;
     private BlueLinkServer blueLinkServer;
@@ -76,7 +77,7 @@ public class SquaresActivity extends ActionBarActivity {
             @Override
             public void onClick(View v) {
                 startServerButton.setEnabled(false);
-                blueLinkClient = new BlueLinkClient(SquaresActivity.this, new Handler(), "BlueLinkTest",
+                blueLinkClient = new BlueLinkClient(SquaresActivity.this, new Handler(), BASENAME,
                         "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", new Factory(model), null);
                 blueLinkClient.searchForServer(new OnSearchForServerCallback() {
                     @Override
@@ -104,8 +105,8 @@ public class SquaresActivity extends ActionBarActivity {
             @Override
             public void onClick(View v) {
                 searchForServersButton.setEnabled(false);
-                blueLinkServer = new BlueLinkServer(SquaresActivity.this, new Handler(), "BlueLinkTest",
-                        "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", null);
+                blueLinkServer = new BlueLinkServer(SquaresActivity.this, new Handler(), BASENAME,
+                        "Super Server!", "234eda5e-048e-4e75-8acc-b56b6e6cc9aa", null);
                 blueLinkServer.openServer(new OnOpenServerCallback() {
                     @Override
                     public void onOpen(Exception e) {

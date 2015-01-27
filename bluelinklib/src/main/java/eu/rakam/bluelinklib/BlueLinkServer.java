@@ -36,7 +36,8 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
 
     private Activity activity;
     private Handler handler;
-    private String serverName;
+    private String baseName;
+    private String name;
     private java.util.UUID UUID;
 
     private final BluetoothAdapter bluetooth;
@@ -52,15 +53,17 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
     /**
      * @param activity
      * @param handler         the thread associated with this handler will be used to run all the callback methods
-     * @param serverName
+     * @param baseName        only the applications which used the same baseName can connect together (e.g use the name of your game)
+     * @param name            used to differentiate the servers of the same game. It will be the value of {@link Server#getName()}. Can be null (the name of the device will be used)
      * @param UUID            unique ID for your application
-     * @param messageCallback callback method called when the client receive a message sent by {@link eu.rakam.bluelinklib.BlueLinkServer#sendMessage(Client, BlueLinkOutputStream)}.
+     * @param messageCallback callback method called when the client receive a message sent by {@link eu.rakam.bluelinklib.BlueLinkServer#sendMessage(Client, BlueLinkOutputStream)}
      */
-    public BlueLinkServer(Activity activity, Handler handler, String serverName, String UUID,
+    public BlueLinkServer(Activity activity, Handler handler, String baseName, String name, String UUID,
                           OnNewMessageCallback messageCallback) {
         this.activity = activity;
         this.handler = handler;
-        this.serverName = serverName;
+        this.baseName = baseName;
+        this.name = name == null ? Build.MODEL : name;
         this.UUID = java.util.UUID.fromString(UUID);
         this.messageCallback = messageCallback;
         this.bluetooth = BluetoothAdapter.getDefaultAdapter();
@@ -86,7 +89,7 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
                     });
                 } else {
                     try {
-                        bluetooth.setName(serverName + Build.MODEL);
+                        bluetooth.setName(baseName + " " + name);
                         openServer();
                         makeDiscoverable(DISCOVERABLE_DURATION);
                     } catch (final IOException e1) {
@@ -312,7 +315,7 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
                 ServerHandshakingThread thread = new ServerHandshakingThread(BlueLinkServer.this, socket);
                 thread.start();
             }
-        }, bluetooth, serverName, UUID);
+        }, bluetooth, name, UUID);
         serverThread.start();
     }
 

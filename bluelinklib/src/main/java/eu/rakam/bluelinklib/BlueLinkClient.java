@@ -31,7 +31,7 @@ public class BlueLinkClient implements OnNewUserMessageCallback, OnNewSyncMessag
 
     private Activity activity;
     private Handler handler;
-    private String serverName;
+    private String baseName;
     private java.util.UUID UUID;
 
     private BluetoothAdapter bluetooth;
@@ -49,16 +49,16 @@ public class BlueLinkClient implements OnNewUserMessageCallback, OnNewSyncMessag
     /**
      * @param activity
      * @param handler         the thread associated with this handler will be used to run all the callback methods
-     * @param serverName
+     * @param baseName        baseName of the servers to llok for
      * @param UUID            same UUID as {@link eu.rakam.bluelinklib.BlueLinkServer}
      * @param factory         factory able to instantiate all the classes that implement the {@link eu.rakam.bluelinklib.sync.BLSynchronizable} interface
      * @param messageCallback callback method called when the client receive a message sent by {@link eu.rakam.bluelinklib.BlueLinkServer#sendMessage(Client, BlueLinkOutputStream)}.
      */
-    public BlueLinkClient(Activity activity, Handler handler, String serverName, String UUID, BLFactory factory,
+    public BlueLinkClient(Activity activity, Handler handler, String baseName, String UUID, BLFactory factory,
                           OnNewMessageCallback messageCallback) {
         this.activity = activity;
         this.handler = handler;
-        this.serverName = serverName;
+        this.baseName = baseName;
         this.UUID = java.util.UUID.fromString(UUID);
         this.factory = factory;
         this.messageCallback = messageCallback;
@@ -306,9 +306,9 @@ public class BlueLinkClient implements OnNewUserMessageCallback, OnNewSyncMessag
             public void onReceive(Context context, Intent intent) {
                 BluetoothDevice newDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 Log.d(BlueLink.TAG, "New Device");
-                if (newDevice.getName().startsWith(serverName)) {
+                if (newDevice.getName().startsWith(baseName)) {
                     Log.d(BlueLink.TAG, "New Device OK");
-                    Server server = new Server(newDevice.getName().substring(serverName.length()), newDevice);
+                    Server server = new Server(newDevice.getName().substring(baseName.length()), newDevice);
                     serverList.add(server);
                     if (searchForServerCallback != null)
                         searchForServerCallback.onNewServer(server);
