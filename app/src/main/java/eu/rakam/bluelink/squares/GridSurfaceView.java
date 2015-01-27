@@ -1,4 +1,4 @@
-package eu.rakam.bluelink;
+package eu.rakam.bluelink.squares;
 
 import android.content.Context;
 import android.graphics.Canvas;

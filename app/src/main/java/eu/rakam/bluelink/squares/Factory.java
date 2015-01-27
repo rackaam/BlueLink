@@ -1,4 +1,4 @@
-package eu.rakam.bluelink;
+package eu.rakam.bluelink.squares;
 
 import java.util.HashMap;
 import java.util.Map;

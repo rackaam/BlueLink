@@ -1,4 +1,4 @@
-package eu.rakam.bluelink;
+package eu.rakam.bluelink.squares;
 
 import eu.rakam.bluelinklib.BlueLink;
 import eu.rakam.bluelinklib.BlueLinkInputStream;

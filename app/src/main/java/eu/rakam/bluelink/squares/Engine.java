@@ -1,7 +1,8 @@
-package eu.rakam.bluelink;
+package eu.rakam.bluelink.squares;
 
 import android.app.Activity;
 
+import eu.rakam.bluelink.R;
 import eu.rakam.bluelinklib.BlueLinkServer;
 
 public class Engine {

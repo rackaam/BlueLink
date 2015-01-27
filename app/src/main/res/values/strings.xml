@@ -8,5 +8,6 @@
     <string name="start_server">Start Server</string>
     <string name="connect_to_a_server">Connect to a server :</string>
     <string name="send">Send</string>
+    <string name="squares">Squares</string>
 
 </resources>
