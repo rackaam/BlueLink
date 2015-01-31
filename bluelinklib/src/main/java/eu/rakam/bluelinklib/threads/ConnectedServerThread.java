@@ -28,7 +28,8 @@ public class ConnectedServerThread extends Thread {
     private final Client client;
     private InputStream inputStream;
     private OutputStream outputStream;
-    private ByteBuffer twoBytesConversionBuffer = ByteBuffer.allocate(2);
+    private ByteBuffer rTwoBytesConversionBuffer = ByteBuffer.allocate(2);
+    private ByteBuffer sTwoBytesConversionBuffer = ByteBuffer.allocate(2);
     private ByteBuffer fourBytesConversionBuffer = ByteBuffer.allocate(4);
 
     /**
@@ -83,9 +84,9 @@ public class ConnectedServerThread extends Thread {
         try {
             byte byte0 = (byte) inputStream.read();
             byte byte1 = (byte) inputStream.read();
-            twoBytesConversionBuffer.put(0, byte0);
-            twoBytesConversionBuffer.put(1, byte1);
-            int frameSize = twoBytesConversionBuffer.getChar(0);
+            rTwoBytesConversionBuffer.put(0, byte0);
+            rTwoBytesConversionBuffer.put(1, byte1);
+            int frameSize = rTwoBytesConversionBuffer.getChar(0);
             final byte[] buffer = new byte[frameSize];
             int bytesRead = 0;
             while (bytesRead < frameSize) {
@@ -106,7 +107,7 @@ public class ConnectedServerThread extends Thread {
         try {
             byte[] header = new byte[MESSAGE_HEADER_SIZE];
             int contentLength = message.getSize();
-            byte[] contentLengthTab = twoBytesConversionBuffer.putChar(0, (char) contentLength).array(); // conversion int/byte
+            byte[] contentLengthTab = sTwoBytesConversionBuffer.putChar(0, (char) contentLength).array(); // conversion int/byte
             header[0] = type;
             header[1] = contentLengthTab[0];
             header[2] = contentLengthTab[1];
@@ -122,14 +123,14 @@ public class ConnectedServerThread extends Thread {
             byte[] idTab = fourBytesConversionBuffer.putInt(0, message.id).array();
 
             int contentLength = message.out.getSize();
-            byte[] contentLengthTab = twoBytesConversionBuffer.putChar(0, (char) contentLength).array().clone(); // conversion int/byte
+            byte[] contentLengthTab = sTwoBytesConversionBuffer.putChar(0, (char) contentLength).array().clone(); // conversion int/byte
             header[0] = BlueLink.NEW_INSTANCE_MESSAGE;
             header[1] = idTab[0];
             header[2] = idTab[1];
             header[3] = idTab[2];
             header[4] = idTab[3];
 
-            byte[] classNameLengthTab = twoBytesConversionBuffer.putChar(0, (char) message.className.getBytes().length).array();
+            byte[] classNameLengthTab = sTwoBytesConversionBuffer.putChar(0, (char) message.className.getBytes().length).array();
             header[5] = classNameLengthTab[0];
             header[6] = classNameLengthTab[1];
 
@@ -146,7 +147,7 @@ public class ConnectedServerThread extends Thread {
             byte[] header = new byte[UPDATE_MESSAGE_HEADER_SIZE];
             byte[] idTab = fourBytesConversionBuffer.putInt(0, message.id).array();
             int contentLength = message.out.getSize();
-            byte[] contentLengthTab = twoBytesConversionBuffer.putChar(0, (char) contentLength).array(); // conversion int/byte
+            byte[] contentLengthTab = sTwoBytesConversionBuffer.putChar(0, (char) contentLength).array(); // conversion int/byte
             header[0] = BlueLink.UPDATE_MESSAGE;
             header[1] = idTab[0];
             header[2] = idTab[1];

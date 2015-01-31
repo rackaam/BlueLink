@@ -25,7 +25,8 @@ public class ConnectedClientThread extends Thread {
     private final int clientId;
     private InputStream inputStream;
     private OutputStream outputStream;
-    private ByteBuffer twoBytesConversionBuffer = ByteBuffer.allocate(2);
+    private ByteBuffer rTwoBytesConversionBuffer = ByteBuffer.allocate(2);
+    private ByteBuffer sTwoBytesConversionBuffer = ByteBuffer.allocate(2);
     private ByteBuffer fourBytesConversionBuffer = ByteBuffer.allocate(4);
 
     /**
@@ -90,9 +91,9 @@ public class ConnectedClientThread extends Thread {
         try {
             byte byte0 = (byte) inputStream.read();
             byte byte1 = (byte) inputStream.read();
-            twoBytesConversionBuffer.put(0, byte0);
-            twoBytesConversionBuffer.put(1, byte1);
-            int frameSize = twoBytesConversionBuffer.getChar(0);
+            rTwoBytesConversionBuffer.put(0, byte0);
+            rTwoBytesConversionBuffer.put(1, byte1);
+            int frameSize = rTwoBytesConversionBuffer.getChar(0);
             final byte[] buffer = new byte[frameSize];
             int bytesRead = 0;
             while (bytesRead < frameSize) {
@@ -121,15 +122,15 @@ public class ConnectedClientThread extends Thread {
 
             byte0 = (byte) inputStream.read();
             byte1 = (byte) inputStream.read();
-            twoBytesConversionBuffer.put(0, byte0);
-            twoBytesConversionBuffer.put(1, byte1);
-            int classNameLength = twoBytesConversionBuffer.getChar(0);
+            rTwoBytesConversionBuffer.put(0, byte0);
+            rTwoBytesConversionBuffer.put(1, byte1);
+            int classNameLength = rTwoBytesConversionBuffer.getChar(0);
 
             byte0 = (byte) inputStream.read();
             byte1 = (byte) inputStream.read();
-            twoBytesConversionBuffer.put(0, byte0);
-            twoBytesConversionBuffer.put(1, byte1);
-            int frameSize = twoBytesConversionBuffer.getChar(0);
+            rTwoBytesConversionBuffer.put(0, byte0);
+            rTwoBytesConversionBuffer.put(1, byte1);
+            int frameSize = rTwoBytesConversionBuffer.getChar(0);
 
             final byte[] classNameBuffer = new byte[classNameLength];
             int bytesRead = 0;
@@ -166,9 +167,9 @@ public class ConnectedClientThread extends Thread {
             int id = fourBytesConversionBuffer.getInt(0);
             byte0 = (byte) inputStream.read();
             byte1 = (byte) inputStream.read();
-            twoBytesConversionBuffer.put(0, byte0);
-            twoBytesConversionBuffer.put(1, byte1);
-            int frameSize = twoBytesConversionBuffer.getChar(0);
+            rTwoBytesConversionBuffer.put(0, byte0);
+            rTwoBytesConversionBuffer.put(1, byte1);
+            int frameSize = rTwoBytesConversionBuffer.getChar(0);
             final byte[] buffer = new byte[frameSize];
             int bytesRead = 0;
             while (bytesRead < frameSize) {
@@ -189,7 +190,7 @@ public class ConnectedClientThread extends Thread {
         try {
             byte[] header = new byte[MESSAGE_HEADER_SIZE];
             int contentLength = message.getSize();
-            byte[] contentLengthTab = twoBytesConversionBuffer.putChar(0, (char) contentLength).array(); // conversion int/byte
+            byte[] contentLengthTab = sTwoBytesConversionBuffer.putChar(0, (char) contentLength).array(); // conversion int/byte
             header[0] = type;
             header[1] = contentLengthTab[0];
             header[2] = contentLengthTab[1];
