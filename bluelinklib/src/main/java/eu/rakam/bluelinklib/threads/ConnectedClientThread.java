@@ -204,5 +204,6 @@ public class ConnectedClientThread extends Thread {
         for (byte[] b : bytes) {
             outputStream.write(b);
         }
+        outputStream.flush();
     }
 }

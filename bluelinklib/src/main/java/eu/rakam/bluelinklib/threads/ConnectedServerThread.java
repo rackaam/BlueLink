@@ -161,9 +161,20 @@ public class ConnectedServerThread extends Thread {
         }
     }
 
+    public void sendKeepAliveMessage() {
+        try {
+            byte[] header = new byte[1];
+            header[0] = BlueLink.KEEP_ALIVE_MESSAGE;
+            send(header);
+        } catch (IOException e) {
+            Log.e(BlueLink.TAG, "Send Sync Message IO Exception", e);
+        }
+    }
+
     private synchronized void send(byte[]... bytes) throws IOException {
         for (byte[] b : bytes) {
             outputStream.write(b);
         }
+        outputStream.flush();
     }
 }

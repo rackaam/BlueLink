@@ -11,6 +11,7 @@ public class BlueLink {
     public static final byte NEW_INSTANCE_MESSAGE = 0;
     public static final byte UPDATE_MESSAGE = 1;
     public static final byte USER_MESSAGE = 2;
+    public static final byte KEEP_ALIVE_MESSAGE = 3;
 
     private static int idCount;
 

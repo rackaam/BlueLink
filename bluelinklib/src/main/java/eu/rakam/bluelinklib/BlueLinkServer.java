@@ -222,6 +222,11 @@ public class BlueLinkServer implements OnNewClientCallback, OnNewUserMessageCall
                     client.getConnectedServerThread().sendUpdateMessage((UpdateMessage) message);
                 }
                 break;
+            case BlueLink.KEEP_ALIVE_MESSAGE:
+                for (Client client : clientList) {
+                    client.getConnectedServerThread().sendKeepAliveMessage();
+                }
+                break;
         }
 
     }
